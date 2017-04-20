@@ -99,10 +99,23 @@ FileHandle::~FileHandle()
 
 RC FileHandle::readPage(PageNum pageNum, void *data)
 {
-    int test = fseek(handle, PAGE_SIZE * pageNum, SEEK_CUR);
-    cout<<test<<endl;
+
+    int val;
+    //use handle
+    if(handle == NULL) {
+        perror ("Error opening file");
+        return -1;
+    }else{
+        val = fseek(handle, PAGE_SIZE*pageNum, SEEK_SET);
+    }
+    //check to see if fseek worked
+    if(val == 0) {
+        fwrite(data, sizeof(char), PAGE_SIZE, handle);
+    }else{
+        return -1;
+    }
     readPageCounter = readPageCounter + 1;
-    return -1;
+    return 0;
 }
 
 
@@ -115,14 +128,26 @@ RC FileHandle::writePage(PageNum pageNum, const void *data)
 
 RC FileHandle::appendPage(const void *data)
 {
+    //int val;
+    if(handle == NULL) {
+        perror("Error opening file");
+        return -1;
+    }else{
+        fseek(handle,0,SEEK_END);
+        fwrite(data, sizeof(char),PAGE_SIZE,handle);
+        int flush = fflush(handle);
+        if(flush != 0) return -1;
+    }
+
     appendPageCounter = appendPageCounter + 1;
-    return -1;
+    return 0;
 }
 
 
 unsigned FileHandle::getNumberOfPages()
 {
-    return readPageCounter;
+
+    return appendPageCounter;
 }
 
 
