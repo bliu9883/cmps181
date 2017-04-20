@@ -71,6 +71,7 @@ RC PagedFileManager::openFile(const string &fileName, FileHandle &fileHandle)
 
 RC PagedFileManager::closeFile(FileHandle &fileHandle)
 {
+    fflush(fileHandle.handle);
     fclose(fileHandle.handle);
     return 0;
 }
@@ -110,7 +111,7 @@ RC FileHandle::readPage(PageNum pageNum, void *data)
     }
     //check to see if fseek worked
     if(val == 0) {
-        fwrite(data, sizeof(char), PAGE_SIZE, handle);
+        fread(data, sizeof(char), PAGE_SIZE, handle);
     }else{
         return -1;
     }
@@ -121,8 +122,21 @@ RC FileHandle::readPage(PageNum pageNum, void *data)
 
 RC FileHandle::writePage(PageNum pageNum, const void *data)
 {
+    int val;
+    if(handle == NULL) {
+        perror("Error opening file");
+        return -1;
+    }else{
+        val = fseek(handle, PAGE_SIZE*pageNum, SEEK_SET);
+    }
+    if(val == 0) {
+        fwrite(data, sizeof(char),PAGE_SIZE, handle);
+    }else{
+        return -1;
+    }
+
     writePageCounter = writePageCounter + 1;
-    return -1;
+    return 0;
 }
 
 
