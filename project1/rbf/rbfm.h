@@ -4,6 +4,8 @@
 #include <string>
 #include <vector>
 #include <climits>
+#include <stdio.h>
+#include <stdlib.h>
 
 #include "../rbf/pfm.h"
 
@@ -17,16 +19,16 @@ typedef struct
 } RID;
 
 // struct for the slot directory
-typedef struct SlotDir{
+typedef struct{
   unsigned freeSpaceLoc;
   unsigned numOfRecords;
-};
+} SlotDir;
 
 // struct for slot directory record
-typedef struct slotRecord{
+typedef struct{
   unsigned len;
   unsigned recordStartLoc;
-};
+} SlotRecord;
 
 
 // Attribute
@@ -38,7 +40,7 @@ struct Attribute {
     string   name;     // attribute name
     AttrType type;     // attribute type
     AttrLength length; // attribute length
-};
+  };
 
 // Comparison Operator (NOT needed for part 1 of the project)
 typedef enum { EQ_OP = 0, // no condition// = 
@@ -48,7 +50,7 @@ typedef enum { EQ_OP = 0, // no condition// =
            GE_OP,      // >=
            NE_OP,      // !=
            NO_OP       // no condition
-} CompOp;
+         } CompOp;
 
 
 /********************************************************************************
@@ -125,17 +127,17 @@ public:
 /******************************************************************************************************************************************************************
 IMPORTANT, PLEASE READ: All methods below this comment (other than the constructor and destructor) are NOT required to be implemented for the part 1 of the project
 ******************************************************************************************************************************************************************/
-  RC deleteRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid);
+RC deleteRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid);
 
   // Assume the RID does not change after an update
-  RC updateRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const void *data, const RID &rid);
+RC updateRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const void *data, const RID &rid);
 
-  RC readAttribute(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, const string &attributeName, void *data);
+RC readAttribute(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, const string &attributeName, void *data);
 
   // Scan returns an iterator to allow the caller to go through the results one by one. 
-  RC scan(FileHandle &fileHandle,
-      const vector<Attribute> &recordDescriptor,
-      const string &conditionAttribute,
+RC scan(FileHandle &fileHandle,
+  const vector<Attribute> &recordDescriptor,
+  const string &conditionAttribute,
       const CompOp compOp,                  // comparision type such as "<" and "="
       const void *value,                    // used in the comparison
       const vector<string> &attributeNames, // a list of projected attributes
@@ -150,6 +152,13 @@ protected:
 private:
   static RecordBasedFileManager *_rbf_manager;
   bool fileExists(string fileName);
+
+  //helper funcs
+  unsigned getRecordSize(const vector<Attribute> &recordDescriptor);
+  unsigned getFreeSpaceInPage(void* pageData);
+  void setSlotDir(void* page, SlotDir slotdir);
+  void makeNewPage(void* page);
+
 };
 
 #endif
