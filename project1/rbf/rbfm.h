@@ -119,10 +119,11 @@ public:
   //        age: NULL  height: 7.5  salary: 7500)
   RC printRecord(const vector<Attribute> &recordDescriptor, const void *data);
 
-  // Helper methods
-  byte getNullBitSize(const vector<Attribute> &recordDescriptor);
-  bool initializeData(PageNum page, const vector<Attribute> &recordDescriptor, const void *data);
-  int getRecordSize(const vector<Attribute> &recordDescriptor);
+  //helper funcs
+  unsigned getRecordSize(const vector<Attribute> &recordDescriptor);
+  unsigned getFreeSpaceInPage(void* pageData);
+  void setSlotDir(void* page, SlotDir slotdir);
+  void makeNewPage(void* page);
 
 
 /******************************************************************************************************************************************************************
@@ -155,10 +156,6 @@ private:
   bool fileExists(string fileName);
 
   //helper funcs
-  unsigned getRecordSize(const vector<Attribute> &recordDescriptor);
-  unsigned getFreeSpaceInPage(void* pageData);
-  void setSlotDir(void* page, SlotDir slotdir);
-  void makeNewPage(void* page);
 
 };
 

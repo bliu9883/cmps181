@@ -57,6 +57,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
     // first need to get total size of record data and null flag
     unsigned recordSize = getRecordSize(recordDescriptor);
     unsigned totalSizeNeeded = recordSize + sizeof(SlotRecord);
+    bool foundFreePage = false;
     //get the current(last page) to try to insert record
     unsigned pageNum = fileHandle.getNumberOfPages()-1;
     void* page = malloc(PAGE_SIZE);
@@ -69,7 +70,6 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
     if(pageFreeSpace < totalSizeNeeded) {    
         unsigned numOfPages = fileHandle.getNumberOfPages();
         //start from first page, read data into page and check to see if size works
-        bool foundFreePage = false;
         for(unsigned i=0;i<numOfPages;i++) {
             fileHandle.readPage(i, page);
             if(getFreeSpaceInPage(page) >= totalSizeNeeded) {
@@ -85,9 +85,9 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
     //now we have the right pageNum to insert.
     //set up the slot directory stuff
     //If foundFreePage is false, pageNum+=1 for new page
-     if(!foundFreePage) {
+    if(!foundFreePage) {
         makeNewPage(page);
-     }
+    }
 
     return 0;
     // // first need to get total size of record data and null flag
@@ -108,10 +108,6 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
     return -1;
 }
 
-<<<<<<< HEAD
-unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescriptor){
-
-}
 unsigned RecordBasedFileManager::getFreeSpaceInPage(void* pageData) {
 
 }
@@ -123,9 +119,9 @@ void RecordBasedFileManager::makeNewPage(void* page){
 
 }
 
-int RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescriptor){
-    int nullBitSize = ceil(recordDescriptor.size()/8);
-    int fieldSize = 0;
+unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescriptor){
+    unsigned nullBitSize = ceil(recordDescriptor.size()/8);
+    unsigned fieldSize = 0;
 
     for (int i=0; i<recordDescriptor.size(); i++){
         cout << "name is " << recordDescriptor[i].name<<endl;
@@ -142,9 +138,10 @@ int RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescrip
             fieldSize = fieldSize + 4 + charLength;
         }
     }
-    int recordSize = nullBitSize + fieldSize;
+    unsigned recordSize = nullBitSize + fieldSize;
     cout <<"record size " << recordSize << endl;
-    return nullBitSize+fieldSize;
+    return recordSize;
 }
+
 
 
