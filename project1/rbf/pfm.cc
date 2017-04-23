@@ -100,19 +100,17 @@ FileHandle::~FileHandle()
 RC FileHandle::readPage(PageNum pageNum, void *data)
 {
 
-    int val;
     //use handle
     if(handle == NULL) {
         perror ("Error opening file");
         return -1;
     }else{
-        val = fseek(handle, PAGE_SIZE*pageNum, SEEK_SET);
-    }
-    //check to see if fseek worked
-    if(val == 0) {
-        fread(data, sizeof(char), PAGE_SIZE, handle);
-    }else{
-        return -1;
+        if(fseek(handle, PAGE_SIZE*pageNum, SEEK_SET) != 0) {
+            return -1;
+        }
+         //check to see if fseek worked
+        size_t result = fread(data, sizeof(char), PAGE_SIZE, handle);
+        if(result != PAGE_SIZE) return -1;
     }
     readPageCounter = readPageCounter + 1;
     return 0;
@@ -121,19 +119,19 @@ RC FileHandle::readPage(PageNum pageNum, void *data)
 
 RC FileHandle::writePage(PageNum pageNum, const void *data)
 {
-    int val;
     if(handle == NULL) {
         perror("Error opening file");
         return -1;
     }else{
-        val = fseek(handle, PAGE_SIZE*pageNum, SEEK_SET);
+        if(fseek(handle, PAGE_SIZE*pageNum, SEEK_SET) != 0) {
+            return -1;
+        }
+        size_t result = fwrite(data, sizeof(char),PAGE_SIZE, handle);
+        //cout << "result is " << result << endl;
+        if(result != PAGE_SIZE) return -1;
+        size_t flush = fflush(handle);
+        if(flush != 0) return -1;
     }
-    if(val == 0) {
-        fwrite(data, sizeof(char),PAGE_SIZE, handle);
-    }else{
-        return -1;
-    }
-
     writePageCounter = writePageCounter + 1;
     return 0;
 }
@@ -141,14 +139,15 @@ RC FileHandle::writePage(PageNum pageNum, const void *data)
 
 RC FileHandle::appendPage(const void *data)
 {
-    //int val;
+
     if(handle == NULL) {
         perror("Error opening file");
         return -1;
     }else{
-        fseek(handle,0,SEEK_END);
-        fwrite(data, sizeof(char),PAGE_SIZE,handle);
-        int flush = fflush(handle);
+        if(fseek(handle,0,SEEK_END) != 0) return -1;
+        size_t result = fwrite(data, sizeof(char),PAGE_SIZE,handle);
+        if(result != PAGE_SIZE) return -1;
+        size_t flush = fflush(handle);
         if(flush != 0) return -1;
     }
 
@@ -160,7 +159,7 @@ RC FileHandle::appendPage(const void *data)
 unsigned FileHandle::getNumberOfPages()
 {
 
-    return appendPageCounter;
+    return appendPageCounter+1;
 }
 
 

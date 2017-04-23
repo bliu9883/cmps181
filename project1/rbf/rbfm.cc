@@ -50,7 +50,14 @@ RC RecordBasedFileManager::closeFile(FileHandle &fileHandle) {
 }
 
 RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const void *data, RID &rid) {
-    return -1;
+    // first need to get total size of record data and null flag
+    unsigned recordSize = getRecordSize(const vector<Attribute> &recordDescriptor);
+    //get the current(last page) to try to insert record
+    unsigned lastPage = fileHandle.getNumberOfPages()-1;
+    //check to see if lastPage has enough space for the actual record and slot record
+    unsigned pageFreeSpace = getFreeSpaceInPage()
+
+
 }
 
 RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, void *data) {
@@ -60,3 +67,5 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
 RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor, const void *data) {
     return -1;
 }
+
+

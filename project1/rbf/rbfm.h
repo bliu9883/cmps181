@@ -16,6 +16,18 @@ typedef struct
   unsigned slotNum;    // slot number in the page
 } RID;
 
+// struct for the slot directory
+typedef struct SlotDir{
+  unsigned freeSpaceLoc;
+  unsigned numOfRecords;
+};
+
+// struct for slot directory record
+typedef struct slotRecord{
+  unsigned len;
+  unsigned recordStartLoc;
+};
+
 
 // Attribute
 typedef enum { TypeInt = 0, TypeReal, TypeVarChar } AttrType;
@@ -104,6 +116,11 @@ public:
   // (e.g., age: 24  height: 6.1  salary: 9000
   //        age: NULL  height: 7.5  salary: 7500)
   RC printRecord(const vector<Attribute> &recordDescriptor, const void *data);
+
+  // Helper methods
+  byte getNullBitSize(const vector<Attribute> &recordDescriptor);
+  bool initializeData(PageNum page, const vector<Attribute> &recordDescriptor, const void *data);
+
 
 /******************************************************************************************************************************************************************
 IMPORTANT, PLEASE READ: All methods below this comment (other than the constructor and destructor) are NOT required to be implemented for the part 1 of the project
