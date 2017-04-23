@@ -120,6 +120,7 @@ public:
   // Helper methods
   byte getNullBitSize(const vector<Attribute> &recordDescriptor);
   bool initializeData(PageNum page, const vector<Attribute> &recordDescriptor, const void *data);
+  int getRecordSize(const vector<Attribute> &recordDescriptor);
 
 
 /******************************************************************************************************************************************************************
