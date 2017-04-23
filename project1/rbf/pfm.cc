@@ -64,7 +64,6 @@ RC PagedFileManager::openFile(const string &fileName, FileHandle &fileHandle)
     }
     FILE *pagedFile = fopen(fileName.c_str(), "rb+");
     fileHandle.handle = pagedFile;
-    // cout<<fileHandle.handle<<endl;
     return 0;
 }
 

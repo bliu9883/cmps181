@@ -132,6 +132,7 @@ protected:
 
 private:
   static RecordBasedFileManager *_rbf_manager;
+  bool fileExists(string fileName);
 };
 
 #endif

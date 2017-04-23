@@ -1,3 +1,4 @@
+#include <sys/stat.h>
 #include "rbfm.h"
 
 RecordBasedFileManager* RecordBasedFileManager::_rbf_manager = 0;
@@ -18,15 +19,29 @@ RecordBasedFileManager::~RecordBasedFileManager()
 {
 }
 
+bool RecordBasedFileManager::fileExists(string fileName){
+    struct stat stFileInfo;
+
+    if (stat(fileName.c_str(), &stFileInfo) == 0)
+        return true;
+    else
+        return false;
+}
+
 RC RecordBasedFileManager::createFile(const string &fileName) {
-    return -1;
+    PagedFileManager* pfm=PagedFileManager::instance();
+    int result = pfm->createFile(fileName);
+    return result;
 }
 
 RC RecordBasedFileManager::destroyFile(const string &fileName) {
-    return -1;
+    PagedFileManager* pfm = PagedFileManager::instance();
+    int result = pfm->destroyFile(fileName);
+    return result;
 }
 
 RC RecordBasedFileManager::openFile(const string &fileName, FileHandle &fileHandle) {
+    // PagedFileManager* pfm = PagedFileManager::instance();
     return -1;
 }
 
