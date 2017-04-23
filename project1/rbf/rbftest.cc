@@ -481,7 +481,7 @@ int RBFTest_8(RecordBasedFileManager *rbfm)
 
     vector<Attribute> recordDescriptor;
     createRecordDescriptor(recordDescriptor);
-    // rbfm->getRecordSize(recordDescriptor);
+    rbfm->getFreeSpaceInPage(record);
 
     // Initialize a NULL field indicator
     int nullFieldsIndicatorActualSize = getActualByteForNullsIndicator(recordDescriptor.size());

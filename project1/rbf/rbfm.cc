@@ -108,10 +108,6 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
     return -1;
 }
 
-unsigned RecordBasedFileManager::getFreeSpaceInPage(void* pageData) {
-
-}
-
 void RecordBasedFileManager::setSlotDir(void* page, SlotDir slotdir){
 
 }
@@ -124,9 +120,9 @@ unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDe
     unsigned fieldSize = 0;
 
     for (int i=0; i<recordDescriptor.size(); i++){
-        cout << "name is " << recordDescriptor[i].name<<endl;
-        cout << "type is " << recordDescriptor[i].type<<endl;
-        cout << "length is " << recordDescriptor[i].length<<endl;
+        // cout << "name is " << recordDescriptor[i].name<<endl;
+        // cout << "type is " << recordDescriptor[i].type<<endl;
+        // cout << "length is " << recordDescriptor[i].length<<endl;
 
         AttrType type = recordDescriptor[i].type;
 
@@ -139,9 +135,15 @@ unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDe
         }
     }
     unsigned recordSize = nullBitSize + fieldSize;
-    cout <<"record size " << recordSize << endl;
+    // cout <<"record size " << recordSize << endl;
     return recordSize;
 }
 
-
-
+unsigned RecordBasedFileManager::getFreeSpaceInPage(void* pageData){
+    unsigned startSD = PAGE_SIZE-(sizeof(SlotRecord) * SlotDir.numOfRecords);
+    unsigned freeSpace = startSD - SlotDir.freeSpaceLoc;
+    cout<<"size of slot record " << sizeof(SlotRecord) << endl;
+    cout<<"start of sd " << startSD << endl;
+    cout<<"free space available" << freeSpace << endl;
+    return freeSpace;
+}
