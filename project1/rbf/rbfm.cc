@@ -2,6 +2,7 @@
 #include "rbfm.h"
 #include <math.h>
 
+
 RecordBasedFileManager* RecordBasedFileManager::_rbf_manager = 0;
 
 RecordBasedFileManager* RecordBasedFileManager::instance()
@@ -126,13 +127,27 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
     //update slot record
     sr.len = recordSize;
-    sr.recordStartLoc = sd.freespaceLoc;
+    sr.recordStartLoc = sd.freeSpaceLoc;
     setSlotRecord(page, sr, rid.slotNum);
 
     //update slot dir
     sd.freeSpaceLoc+=recordSize;
     sd.numOfRecords+=1;
     setSlotDir(page,sd);
+
+    // write the actual page
+    if (foundFreePage)
+    {
+        cout << "writing" << endl;
+        int result = fileHandle.writePage(pageNum, page);
+        if(result != 0) cout << "write failed " << endl;
+            
+    }else{
+        cout << "appending" << endl;
+        int result = fileHandle.appendPage(page);
+        if(result != 0) cout << "append failed" << endl;
+
+    }
 
     free(page);
     return 0;
@@ -141,31 +156,78 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
 RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, void *data) {
 
+    cout << "inside read record" << endl;
     void * page = malloc(PAGE_SIZE);
     if (fileHandle.readPage(rid.pageNum, page) == -1) {
+        cout << "READ RECORD ABOUT TO RETURN -1 " << endl;
         return -1;
     }
 
     //see if the page actually exists
     SlotDir sd = getSlotDir(page);
     if(sd.numOfRecords < rid.slotNum) {
+        cout << "num of rec is " << sd.numOfRecords << endl;
+        cout << "rid.slotnum is " << rid.slotNum << endl;
+        cout << "num record returning -1 " << endl;
         return -1;
     }
 
 
     // Gets the slot directory record entry data
-    SlotRecord recordEntry = getSlotRecord(page, rid.slotNum);
+    SlotRecord sr = getSlotRecord(page, rid.slotNum);
 
+    cout << "before pull page " << endl;
     // Retrieve the actual entry data
-    getRecordAtOffset(pageData, recordEntry.offset, recordDescriptor, data);
+    pullRecordFromPage(page, sr, recordDescriptor, data);
+    cout << "read chk 1" << endl;
 
-    free(pageData);
-    return SUCCESS;
+    free(page);
+    return 0;
 
 }
 
 RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor, const void *data) {
-    return -1;
+      // Parse the null indicator into an array
+    int nullsize = ceil(recordDescriptor.size()/8);
+    char nullinfo[nullsize];
+    memcpy(&nullinfo, data, sizeof(nullinfo));
+    
+    // We've read in the null indicator, so we can skip past it now
+    unsigned offset = nullsize;
+    for (unsigned i = 0; i < (unsigned) recordDescriptor.size(); i++)
+    {
+        //cout << setw(10) << left << recordDescriptor[i].name << ": ";
+        // If the field is null, don't print it
+        if(isNullBitOne(nullinfo, i)) {
+            cout << recordDescriptor[i].name << ":  " << "NULL" << "  "; continue;
+        }
+
+        if(recordDescriptor[i].type == TypeInt || recordDescriptor[i].type == TypeReal) {
+            uint32_t val;
+            memcpy(&val, (char*)data+offset, 4);
+            offset += 4;
+            cout << recordDescriptor[i].name << ":  " << val << "  ";
+        }
+
+        if(recordDescriptor[i].type == TypeVarChar) {
+            uint32_t varsize;
+            memcpy(&varsize, (char*)data+offset, 4);
+            offset += 4;
+            //write to string
+            char* str = (char*)malloc(varsize + 1);
+            memcpy(str, (char*)data+offset, varsize);
+            //terminate c string in null char
+            str[varsize] = '\0';
+            offset += varsize;
+            cout << recordDescriptor[i].name << ":  " << str << "  ";
+            free(str);
+
+        }
+
+    }
+    cout << endl;
+    return 0;
+
 }
 
 
@@ -278,7 +340,7 @@ void RecordBasedFileManager::putRecordOnPage(void* page, const vector<Attribute>
     }
 }
 
-void RecordBasedFileManager::pullRecordFromPage(void* page, const SlotRecord& sr, const vector<Attribute> &recordDescriptor, const void* data) {
+void RecordBasedFileManager::pullRecordFromPage(void* page, const SlotRecord& sr, const vector<Attribute> &recordDescriptor, void* data) {
 
     char* recStart = (char*)page + sr.recordStartLoc;
     //get null bit info
@@ -287,17 +349,27 @@ void RecordBasedFileManager::pullRecordFromPage(void* page, const SlotRecord& sr
     char nullinfo[nullSize];
     //write nullbit to data
     memcpy(data, recStart, sizeof(nullinfo));
-    //set nullflag into record
-    //databegin is where we set actual data
     recStart += sizeof(nullinfo);
-    char* fieldStart = recStart + (numOfFields*4);
+
 
     char* dataBegin = (char*)data + sizeof(nullinfo);
     unsigned fieldStartAddress = nullSize + (numOfFields*4);
+    //iterate thru the descriptor
+    for(int i=0;i<recordDescriptor.size();i++) {
+        //if the field is not null, copy field data
+        if(!isNullBitOne(nullinfo, i)) {
 
-    
+            unsigned fieldOffset;
+            memcpy(&fieldOffset, recStart, 4);
+            memcpy(dataBegin, &fieldStartAddress, (fieldOffset-fieldStartAddress));
+            dataBegin+=(fieldOffset-fieldStartAddress);
+            fieldStartAddress+=(fieldOffset-fieldStartAddress);
+            recStart+=4;
 
+        }
+    }
 
+    cout << "getting thru here " << endl;
 }
 
 

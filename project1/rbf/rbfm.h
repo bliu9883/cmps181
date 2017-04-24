@@ -128,7 +128,7 @@ public:
   SlotDir getSlotDir(void* page);
   SlotRecord getSlotRecord(void* page, unsigned recordNum);
   void putRecordOnPage(void* page,const vector<Attribute> &recordDescriptor, const void* data);
-  void pullRecordFromPage(void* page, const SlotRecord& sr, const vector<Attribute> &recordDescriptor, const void* data);
+  void pullRecordFromPage(void* page, const SlotRecord& sr, const vector<Attribute> &recordDescriptor,void* data);
   unsigned getNullBit(const vector<Attribute> &recordDescriptor);
   bool isNullBitOne(char* nullflag, int i);
 
