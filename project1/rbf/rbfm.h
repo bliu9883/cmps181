@@ -122,8 +122,13 @@ public:
   //helper funcs
   unsigned getRecordSize(const vector<Attribute> &recordDescriptor);
   unsigned getFreeSpaceInPage(void* pageData);
-  void setSlotDir(void* page, SlotDir slotdir);
+  void setSlotDir(void* page, const SlotDir& sd);
+  void setSlotRecord(void* page, const SlotRecord& sr, unsigned recordNum);
   void makeNewPage(void* page);
+  SlotDir getSlotDir(void* page);
+  SlotRecord getSlotRecord(void* page, unsigned recordNum);
+  void putRecordOnPage(void* page, SlotDir& sd);
+
 
 
 /******************************************************************************************************************************************************************

@@ -89,6 +89,33 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         makeNewPage(page);
     }
 
+    //actually put in the record on the page
+    SlotDir sd = getSlotDir(page);
+
+
+    //set up the rid
+    rid.pageNum = pageNum;
+    rid.slotNum = getSlotDir(page)+1;
+
+    //update slotdir
+    SlotDir sd = getSlotDir(page);
+    sd.freeSpaceLoc+=recordSize;
+    sd.numOfRecords+=1;
+    setSlotDir(page,sd);
+
+    //update slotrecord
+    SlotRecord sr;
+    sr.length = recordSize;
+    sr.recordStartLoc = sd.freeSpaceLoc;
+    setSlotRecord(page, sr, rid.slotNum);
+
+
+
+
+
+
+
+
     return 0;
     // // first need to get total size of record data and null flag
     // unsigned recordSize = getRecordSize(&recordDescriptor);
@@ -142,6 +169,45 @@ unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDe
     cout <<"record size " << recordSize << endl;
     return recordSize;
 }
+
+void RecordBasedFileManager::makeNewPage(void* page) {
+    //set up a slotdir for the page
+    SlotDir sd;
+    sd.freeSpaceLoc = 0;
+    sd.numOfRecords = 0;
+    setSlotDir(page, sd);
+}
+
+void RecordBasedFileManager::setSlotDir(void* page, const SlotDir& sd) {
+    //copy the sd data into the (end of)page
+    memcpy(page+(PAGE_SIZE-sizeof(sd)), &sd, sizeof(sd));
+}
+void RecordBasedFileManager::setSlotRecord(void* page, const SlotRecord& sr){
+
+}
+SlotDir getSlotDir(void* page){
+
+}
+SlotRecord getSlotRecord(void* page, unsigned recordNum){
+
+}
+
+void RecordBasedFileManager::putRecordOnPage(void* page, SlotDir& sd){
+    
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
