@@ -159,7 +159,13 @@ RC FileHandle::appendPage(const void *data)
 unsigned FileHandle::getNumberOfPages()
 {
 
-    return appendPageCounter;
+    //stat structure to get page size
+    struct stat temp;
+    int result = fstat(fileno(handle),&temp);
+    if(result != 0)
+        return 0;
+    //page num is the file size div by page size
+    return temp.st_size/PAGE_SIZE;
 }
 
 

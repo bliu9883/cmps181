@@ -31,8 +31,27 @@ bool RecordBasedFileManager::fileExists(string fileName){
 
 RC RecordBasedFileManager::createFile(const string &fileName) {
     PagedFileManager* pfm=PagedFileManager::instance();
-    int result = pfm->createFile(fileName);
-    return result;
+
+    if (pfm->createFile(fileName))
+        return -1;
+
+    
+    void * page = calloc(PAGE_SIZE, 0);
+    if (page == NULL)
+        return -1;
+    makeNewPage(page);
+
+
+    FileHandle handle;
+    if (pfm->openFile(fileName.c_str(), handle))
+        return -1;
+    if (handle.appendPage(page))
+        return -1;
+    pfm->closeFile(handle);
+
+    free(page);
+
+    return 0;
 }
 
 RC RecordBasedFileManager::destroyFile(const string &fileName) {
@@ -67,6 +86,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
     //if current page has enough space, leave pageNum alone. Otherwise, find a page
     //that has enough free space
+    cout << "bkpoint1" << endl;
     if(pageFreeSpace < totalSizeNeeded) {    
         unsigned numOfPages = fileHandle.getNumberOfPages();
         //start from first page, read data into page and check to see if size works
@@ -81,6 +101,8 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         }
         //if none of the pages have free space, append new one.
     }
+
+    cout << "bkpoint2" << endl;
 
     //now we have the right pageNum to insert.
     //set up the slot directory stuff
@@ -98,45 +120,48 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
     SlotRecord sr = getSlotRecord(page, rid.slotNum);
 
-    putRecordOnPage(page, sd, sr, recordDescriptor,data);
+    putRecordOnPage(page,recordDescriptor,data);
 
+    cout << "bkpoint3" << endl;
 
-    //set up the rid
-    rid.pageNum = pageNum;
-    rid.slotNum = sd.numOfRecords+1;
+    //update slot record
+    sr.len = recordSize;
+    sr.recordStartLoc = sd.freespaceLoc;
+    setSlotRecord(page, sr, rid.slotNum);
 
-    //update slotdir
-    //SlotDir sd = getSlotDir(page);
+    //update slot dir
     sd.freeSpaceLoc+=recordSize;
     sd.numOfRecords+=1;
     setSlotDir(page,sd);
 
-    //update slotrecord
-    //SlotRecord sr;
-    sr.len = recordSize;
-    sr.recordStartLoc = sd.freeSpaceLoc;
-    setSlotRecord(page, sr, rid.slotNum);
-
-
-
-
-
-
-
-
+    free(page);
     return 0;
-    // // first need to get total size of record data and null flag
-    // unsigned recordSize = getRecordSize(&recordDescriptor);
-    // //get the current(last page) to try to insert record
-    // unsigned lastPage = fileHandle.getNumberOfPages()-1;
-    // //check to see if lastPage has enough space for the actual record and slot record
-    // unsigned pageFreeSpace = getFreeSpaceInPage();
-    return -1;
 
 }
 
 RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, void *data) {
-    return -1;
+
+    void * page = malloc(PAGE_SIZE);
+    if (fileHandle.readPage(rid.pageNum, page) == -1) {
+        return -1;
+    }
+
+    //see if the page actually exists
+    SlotDir sd = getSlotDir(page);
+    if(sd.numOfRecords < rid.slotNum) {
+        return -1;
+    }
+
+
+    // Gets the slot directory record entry data
+    SlotRecord recordEntry = getSlotRecord(page, rid.slotNum);
+
+    // Retrieve the actual entry data
+    getRecordAtOffset(pageData, recordEntry.offset, recordDescriptor, data);
+
+    free(pageData);
+    return SUCCESS;
+
 }
 
 RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor, const void *data) {
@@ -190,6 +215,9 @@ void RecordBasedFileManager::setSlotRecord(void* page, const SlotRecord& sr, uns
 }
 SlotDir RecordBasedFileManager::getSlotDir(void* page){
     SlotDir sd;
+    char* temp = (char*)page;
+    temp = temp+PAGE_SIZE-sizeof(sd);
+    memcpy (&sd, temp, sizeof(sd));
     return sd;
 }
 SlotRecord RecordBasedFileManager::getSlotRecord(void* page, unsigned recordNum){
@@ -197,42 +225,87 @@ SlotRecord RecordBasedFileManager::getSlotRecord(void* page, unsigned recordNum)
     return sr;
 }
 
-void RecordBasedFileManager::putRecordOnPage(void* page, SlotDir& sd, SlotRecord& sr, const vector<Attribute> &recordDescriptor, const void* data){
-
-    char* start = (char*)page + sd.freeSpaceLoc;
+void RecordBasedFileManager::putRecordOnPage(void* page, const vector<Attribute> &recordDescriptor, const void* data){
+    SlotDir sd = getSlotDir(page);
+    char* recStart = (char*)page + sd.freeSpaceLoc;
     //get null bit info
-    unsigned null = ceil(recordDescriptor.size()/8);
-    char nullinfo[null];
+    unsigned nullSize = ceil(recordDescriptor.size()/8);
+    unsigned numOfFields = recordDescriptor.size();
+    char nullinfo[nullSize];
     memcpy(&nullinfo, data, sizeof(nullinfo));
     //set nullflag into record
-    memcpy(start, &nullinfo, sizeof(nullinfo));
+    memcpy(recStart, &nullinfo, sizeof(nullinfo));
     //databegin is where we set actual data
-    char* dataBegin = start + sizeof(nullinfo);
+    recStart += sizeof(nullinfo);
+    char* fieldStart = recStart + (numOfFields*4);
+
+    char* dataBegin = (char*)data + sizeof(nullinfo);
+    unsigned fieldStartAddress = nullSize + (numOfFields*4);
+
     //iterate thru records, if NOT null, use memcpy
     for(int i=0;i<recordDescriptor.size();i++) {
         //if the field is not null, copy field data
         if(!isNullBitOne(nullinfo, i)) {
 
+            //memcpy the correct values depending on field type
+            //if its real type or int type
+            if(recordDescriptor[i].type == TypeInt || recordDescriptor[i].type == TypeReal) {
+                ///this copies the data to the actual field position
+                memcpy(fieldStart,dataBegin, 4);
+                dataBegin+=4;
+                fieldStart+=4;
+                fieldStartAddress+=4;
+                memcpy(recStart,&fieldStartAddress,4);
+                recStart+=4;
+            }
+            if(recordDescriptor[i].type == TypeVarChar) {
+                unsigned varSize;
+                //copy size of varchar
+                memcpy(&varSize,dataBegin,4);
+                dataBegin+=4;
+
+                //fill data
+                memcpy(fieldStart, dataBegin, varSize);
+                fieldStart+=varSize;
+                fieldStartAddress+=varSize;
+
+                //fill ref.
+                memcpy(recStart, &fieldStartAddress, 4);
+                recStart+=4;
+
+            }
         }
     }
+}
 
+void RecordBasedFileManager::pullRecordFromPage(void* page, const SlotRecord& sr, const vector<Attribute> &recordDescriptor, const void* data) {
 
+    char* recStart = (char*)page + sr.recordStartLoc;
+    //get null bit info
+    unsigned nullSize = ceil(recordDescriptor.size()/8);
+    unsigned numOfFields = recordDescriptor.size();
+    char nullinfo[nullSize];
+    //write nullbit to data
+    memcpy(data, recStart, sizeof(nullinfo));
+    //set nullflag into record
+    //databegin is where we set actual data
+    recStart += sizeof(nullinfo);
+    char* fieldStart = recStart + (numOfFields*4);
 
+    char* dataBegin = (char*)data + sizeof(nullinfo);
+    unsigned fieldStartAddress = nullSize + (numOfFields*4);
 
-
+    
 
 
 }
 
-bool RecordBasedFileManager::isNullBitOne(char* nullflag, unsigned i){
+
+bool RecordBasedFileManager::isNullBitOne(char* nullflag, int i){
     int bit = i / 8;
     int bitmask  = 1 << (8 - 1 - (i % 8));
     if(nullflag[bit] & bitmask) return true;
     return false;
-}
-
-unsigned RecordBasedFileManager::getNullBit(const vector<Attribute> &recordDescriptor){
-
 }
 
 
@@ -240,6 +313,10 @@ unsigned RecordBasedFileManager::getFreeSpaceInPage(void* page){
     SlotDir sd = getSlotDir(page);
 
     unsigned startSD = PAGE_SIZE-((sizeof(SlotRecord) * sd.numOfRecords)+sizeof(sd));
+    cout << "num of record is " << sd.numOfRecords << endl;
+    cout << "size of sd is " << sizeof(sd) << endl;
+    cout << "startSD is " << startSD << " and page size is " << PAGE_SIZE << endl;
+    cout << "sd.freespaceloc is at " << sd.freeSpaceLoc << endl;
     unsigned freeSpace = startSD - sd.freeSpaceLoc;
     cout<<"size of slot record " << sizeof(SlotRecord) << endl;
     cout<<"start of sd " << startSD << endl;

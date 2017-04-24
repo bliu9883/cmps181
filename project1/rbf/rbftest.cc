@@ -493,6 +493,7 @@ int RBFTest_8(RecordBasedFileManager *rbfm)
     cout << endl << "Inserting Data:" << endl;
     rbfm->printRecord(recordDescriptor, record);
     
+    cout << "NUMBER OF RECORD IN TEST FILE IS " << recordDescriptor.size() << endl;
     rc = rbfm->insertRecord(fileHandle, recordDescriptor, record, rid);
     assert(rc == success && "Inserting a record should not fail.");
     
