@@ -89,23 +89,31 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         makeNewPage(page);
     }
 
-    //actually put in the record on the page
+
+    //actually put in the record on the page, and update sd and sr
     SlotDir sd = getSlotDir(page);
+
+    rid.pageNum = pageNum;
+    rid.slotNum = sd.numOfRecords+1;
+
+    SlotRecord sr = getSlotRecord(page, rid.slotNum);
+
+    putRecordOnPage(page, sd, sr, recordDescriptor,data);
 
 
     //set up the rid
     rid.pageNum = pageNum;
-    rid.slotNum = getSlotDir(page)+1;
+    rid.slotNum = sd.numOfRecords+1;
 
     //update slotdir
-    SlotDir sd = getSlotDir(page);
+    //SlotDir sd = getSlotDir(page);
     sd.freeSpaceLoc+=recordSize;
     sd.numOfRecords+=1;
     setSlotDir(page,sd);
 
     //update slotrecord
-    SlotRecord sr;
-    sr.length = recordSize;
+    //SlotRecord sr;
+    sr.len = recordSize;
     sr.recordStartLoc = sd.freeSpaceLoc;
     setSlotRecord(page, sr, rid.slotNum);
 
@@ -135,12 +143,6 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
     return -1;
 }
 
-void RecordBasedFileManager::setSlotDir(void* page, SlotDir slotdir){
-
-}
-void RecordBasedFileManager::makeNewPage(void* page){
-
-}
 
 unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDescriptor){
     unsigned nullBitSize = ceil(recordDescriptor.size()/8);
@@ -177,25 +179,68 @@ void RecordBasedFileManager::makeNewPage(void* page) {
 
 void RecordBasedFileManager::setSlotDir(void* page, const SlotDir& sd) {
     //copy the sd data into the (end of)page
-    memcpy(page+(PAGE_SIZE-sizeof(sd)), &sd, sizeof(sd));
+    char* temp = (char*)page;
+    temp = temp+PAGE_SIZE-sizeof(sd);
+    memcpy(temp, &sd, sizeof(sd));
 }
-void RecordBasedFileManager::setSlotRecord(void* page, const SlotRecord& sr){
+void RecordBasedFileManager::setSlotRecord(void* page, const SlotRecord& sr, unsigned recordNum){
+    char* temp = (char*)page;
+    temp = temp+PAGE_SIZE-sizeof(SlotDir)-(recordNum*sizeof(sr));
+    memcpy(temp, &sr, sizeof(sr));
+}
+SlotDir RecordBasedFileManager::getSlotDir(void* page){
+    SlotDir sd;
+    return sd;
+}
+SlotRecord RecordBasedFileManager::getSlotRecord(void* page, unsigned recordNum){
+    SlotRecord sr;
+    return sr;
+}
+
+void RecordBasedFileManager::putRecordOnPage(void* page, SlotDir& sd, SlotRecord& sr, const vector<Attribute> &recordDescriptor, const void* data){
+
+    char* start = (char*)page + sd.freeSpaceLoc;
+    //get null bit info
+    unsigned null = ceil(recordDescriptor.size()/8);
+    char nullinfo[null];
+    memcpy(&nullinfo, data, sizeof(nullinfo));
+    //set nullflag into record
+    memcpy(start, &nullinfo, sizeof(nullinfo));
+    //databegin is where we set actual data
+    char* dataBegin = start + sizeof(nullinfo);
+    //iterate thru records, if NOT null, use memcpy
+    for(int i=0;i<recordDescriptor.size();i++) {
+        //if the field is not null, copy field data
+        if(!isNullBitOne(nullinfo, i)) {
+
+        }
+    }
+
+
+
+
+
+
 
 }
-SlotDir getSlotDir(void* page){
 
-}
-SlotRecord getSlotRecord(void* page, unsigned recordNum){
-
-}
-
-void RecordBasedFileManager::putRecordOnPage(void* page, SlotDir& sd){
-    
+bool RecordBasedFileManager::isNullBitOne(char* nullflag, unsigned i){
+    int bit = i / 8;
+    int bitmask  = 1 << (8 - 1 - (i % 8));
+    if(nullflag[bit] & bitmask) return true;
+    return false;
 }
 
-unsigned RecordBasedFileManager::getFreeSpaceInPage(void* pageData){
-    unsigned startSD = PAGE_SIZE-(sizeof(SlotRecord) * SlotDir.numOfRecords);
-    unsigned freeSpace = startSD - SlotDir.freeSpaceLoc;
+unsigned RecordBasedFileManager::getNullBit(const vector<Attribute> &recordDescriptor){
+
+}
+
+
+unsigned RecordBasedFileManager::getFreeSpaceInPage(void* page){
+    SlotDir sd = getSlotDir(page);
+
+    unsigned startSD = PAGE_SIZE-((sizeof(SlotRecord) * sd.numOfRecords)+sizeof(sd));
+    unsigned freeSpace = startSD - sd.freeSpaceLoc;
     cout<<"size of slot record " << sizeof(SlotRecord) << endl;
     cout<<"start of sd " << startSD << endl;
     cout<<"free space available" << freeSpace << endl;

@@ -6,6 +6,7 @@
 #include <climits>
 #include <stdio.h>
 #include <stdlib.h>
+#include <cstring>
 
 #include "../rbf/pfm.h"
 
@@ -121,13 +122,15 @@ public:
 
   //helper funcs
   unsigned getRecordSize(const vector<Attribute> &recordDescriptor);
-  unsigned getFreeSpaceInPage(void* pageData);
+  unsigned getFreeSpaceInPage(void* page);
   void setSlotDir(void* page, const SlotDir& sd);
   void setSlotRecord(void* page, const SlotRecord& sr, unsigned recordNum);
   void makeNewPage(void* page);
   SlotDir getSlotDir(void* page);
   SlotRecord getSlotRecord(void* page, unsigned recordNum);
-  void putRecordOnPage(void* page, SlotDir& sd);
+  void putRecordOnPage(void* page, SlotDir& sd, SlotRecord& sr, const vector<Attribute> &recordDescriptor, const void *data);
+  unsigned getNullBit(const vector<Attribute> &recordDescriptor);
+  bool isNullBitOne(char* nullflag, unsigned i);
 
 
 
