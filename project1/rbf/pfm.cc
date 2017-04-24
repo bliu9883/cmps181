@@ -100,20 +100,37 @@ FileHandle::~FileHandle()
 RC FileHandle::readPage(PageNum pageNum, void *data)
 {
 
-    //use handle
-    if(handle == NULL) {
-        perror ("Error opening file");
-        return -1;
-    }else{
-        if(fseek(handle, PAGE_SIZE*pageNum, SEEK_SET) != 0) {
-            return -1;
-        }
-         //check to see if fseek worked
-        size_t result = fread(data, sizeof(char), PAGE_SIZE, handle);
-        if(result != PAGE_SIZE) return -1;
+    // //use handle
+    // if(handle == NULL) {
+    //     perror ("Error opening file");
+    //     return -1;
+    // }else{
+    //     if(fseek(handle, PAGE_SIZE*pageNum, SEEK_SET) != 0) {
+    //         return -1;
+    //     }
+    //      //check to see if fseek worked
+    //     size_t result = fread(data, sizeof(char), PAGE_SIZE, handle);
+    //     if(result != PAGE_SIZE) return -1;
+    // }
+    // readPageCounter = readPageCounter + 1;
+    // return 0;
+    size_t result;
+    int rc =0;
+    //Checking that pageNum
+    if(pageNum >= getNumberOfPages())
+        rc = -1;        
+
+    //finding location in file
+    if(fseek(handle, pageNum*PAGE_SIZE, SEEK_SET) != 0)
+        rc = -1;    
+
+    //Reading from file
+    if(rc == 0)
+    {
+        fread(data, PAGE_SIZE, 1, handle); //Reading from file
+        readPageCounter++;
     }
-    readPageCounter = readPageCounter + 1;
-    return 0;
+    return rc;
 }
 
 

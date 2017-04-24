@@ -41,6 +41,7 @@ public:
     unsigned readPageCounter;
     unsigned writePageCounter;
     unsigned appendPageCounter;
+    FILE *handle;
     
     FileHandle();                                                         // Default constructor
     ~FileHandle();                                                        // Destructor
@@ -52,7 +53,7 @@ public:
     RC collectCounterValues(unsigned &readPageCount, unsigned &writePageCount, unsigned &appendPageCount);  // Put the current counter values into variables
 
 private:
-    FILE *handle;
+    
 }; 
 
 #endif

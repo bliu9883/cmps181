@@ -87,7 +87,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
     //if current page has enough space, leave pageNum alone. Otherwise, find a page
     //that has enough free space
-    cout << "bkpoint1" << endl;
+    // cout << "bkpoint1" << endl;
     if(pageFreeSpace < totalSizeNeeded) {    
         unsigned numOfPages = fileHandle.getNumberOfPages();
         //start from first page, read data into page and check to see if size works
@@ -103,7 +103,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         //if none of the pages have free space, append new one.
     }
 
-    cout << "bkpoint2" << endl;
+    // cout << "bkpoint2" << endl;
 
     //now we have the right pageNum to insert.
     //set up the slot directory stuff
@@ -123,7 +123,7 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
     putRecordOnPage(page,recordDescriptor,data);
 
-    cout << "bkpoint3" << endl;
+    // cout << "bkpoint3" << endl;
 
     //update slot record
     sr.len = recordSize;
@@ -140,14 +140,16 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
     {
         cout << "writing" << endl;
         int result = fileHandle.writePage(pageNum, page);
-        if(result != 0) cout << "write failed " << endl;
+        // if(result != 0) cout << "write failed " << endl;
             
     }else{
-        cout << "appending" << endl;
+        // cout << "appending" << endl;
         int result = fileHandle.appendPage(page);
-        if(result != 0) cout << "append failed" << endl;
+        // if(result != 0) cout << "append failed" << endl;
 
     }
+
+    cout<<"# of pages: "<< fileHandle.getNumberOfPages()<<endl;
 
     free(page);
     return 0;
@@ -156,19 +158,14 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
 
 RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, void *data) {
 
-    cout << "inside read record" << endl;
     void * page = malloc(PAGE_SIZE);
-    if (fileHandle.readPage(rid.pageNum, page) == -1) {
-        cout << "READ RECORD ABOUT TO RETURN -1 " << endl;
+    if (fileHandle.readPage(1, page) == -1) {
         return -1;
     }
 
     //see if the page actually exists
     SlotDir sd = getSlotDir(page);
     if(sd.numOfRecords < rid.slotNum) {
-        cout << "num of rec is " << sd.numOfRecords << endl;
-        cout << "rid.slotnum is " << rid.slotNum << endl;
-        cout << "num record returning -1 " << endl;
         return -1;
     }
 
@@ -176,10 +173,8 @@ RC RecordBasedFileManager::readRecord(FileHandle &fileHandle, const vector<Attri
     // Gets the slot directory record entry data
     SlotRecord sr = getSlotRecord(page, rid.slotNum);
 
-    cout << "before pull page " << endl;
     // Retrieve the actual entry data
     pullRecordFromPage(page, sr, recordDescriptor, data);
-    cout << "read chk 1" << endl;
 
     free(page);
     return 0;
@@ -236,9 +231,6 @@ unsigned RecordBasedFileManager::getRecordSize(const vector<Attribute> &recordDe
     unsigned fieldSize = 0;
 
     for (int i=0; i<recordDescriptor.size(); i++){
-        // cout << "name is " << recordDescriptor[i].name<<endl;
-        // cout << "type is " << recordDescriptor[i].type<<endl;
-        // cout << "length is " << recordDescriptor[i].length<<endl;
 
         AttrType type = recordDescriptor[i].type;
 
@@ -358,18 +350,15 @@ void RecordBasedFileManager::pullRecordFromPage(void* page, const SlotRecord& sr
     for(int i=0;i<recordDescriptor.size();i++) {
         //if the field is not null, copy field data
         if(!isNullBitOne(nullinfo, i)) {
-
             unsigned fieldOffset;
             memcpy(&fieldOffset, recStart, 4);
-            memcpy(dataBegin, &fieldStartAddress, (fieldOffset-fieldStartAddress));
+            memcpy(dataBegin, &fieldStartAddress, (fieldStartAddress-fieldOffset));
             dataBegin+=(fieldOffset-fieldStartAddress);
             fieldStartAddress+=(fieldOffset-fieldStartAddress);
             recStart+=4;
 
         }
     }
-
-    cout << "getting thru here " << endl;
 }
 
 
