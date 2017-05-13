@@ -8,6 +8,9 @@
 #include <stdlib.h>
 #include <sys/types.h>
 #include <sys/stat.h>
+#include <cstring>
+#include <iostream>
+
 
 #include "../rbf/rbfm.h"
 
@@ -77,6 +80,9 @@ private:
   vector<Attribute> getTableAttr();
   vector<Attribute> getColumnAttr();
   void* catalogInfo(unsigned i);
+  unsigned getTableIndex(const string &tableName);
+  RC setTableData(const string &tableName, const void * data, int table_id);
+  RC setColumnData(const string &tableName, vector<Attribute> columAttr, const void * data, int id);
 };
 
 #endif
