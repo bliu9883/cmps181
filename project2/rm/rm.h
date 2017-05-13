@@ -4,6 +4,10 @@
 
 #include <string>
 #include <vector>
+#include <stdio.h>
+#include <stdlib.h>
+#include <sys/types.h>
+#include <sys/stat.h>
 
 #include "../rbf/rbfm.h"
 
@@ -69,6 +73,10 @@ protected:
 
 private:
   static RelationManager *_rm;
+  static RecordBasedFileManager* rbfm; 
+  vector<Attribute> getTableAttr();
+  vector<Attribute> getColumnAttr();
+  void* catalogInfo(unsigned i);
 };
 
 #endif

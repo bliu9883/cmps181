@@ -224,59 +224,61 @@ RC RecordBasedFileManager::printRecord(const vector<Attribute> &recordDescriptor
 
 RC deleteRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid){
     //Retrieve the specfic page
-    void * pageData = malloc(PAGE_SIZE);
-    if (fileHandle.readPage(rid.pageNum, pageData))
-        return RBFM_READ_FAILED;
+    // void * pageData = malloc(PAGE_SIZE);
+    // if (fileHandle.readPage(rid.pageNum, pageData))
+    //     return RBFM_READ_FAILED;
 
-    // Checks if the specific slot id exists in the page
-    SlotDirectoryHeader slotHeader = getSlotDirectoryHeader(pageData);
-    if(slotHeader.recordEntriesNumber < rid.slotNum)
-        return RBFM_SLOT_DN_EXIST;
+    // // Checks if the specific slot id exists in the page
+    // SlotDirectoryHeader slotHeader = getSlotDirectoryHeader(pageData);
+    // if(slotHeader.recordEntriesNumber < rid.slotNum)
+    //     return RBFM_SLOT_DN_EXIST;
 
-    // Gets the slot directory record entry data
-    SlotDirectoryRecordEntry recordEntry = getSlotDirectoryRecordEntry(pageData, rid.slotNum);
+    // // Gets the slot directory record entry data
+    // SlotDirectoryRecordEntry recordEntry = getSlotDirectoryRecordEntry(pageData, rid.slotNum);
 
-    uint32_t shift = recordEntry.length;
-    unsigned memoryToMove = recordEntry.offset - slotHeader.freeSpaceOffset;
+    // uint32_t shift = recordEntry.length;
+    // unsigned memoryToMove = recordEntry.offset - slotHeader.freeSpaceOffset;
     
-    //alive
-    if (recordEntry.length != 0 && recordEntry.offset > 0){
-        recordEntry.offset=0;
-        recordEntry.length = 0;
-        memmove(slotHeader.freeSpaceOffset + shift, slotHeader.freeSpaceOffset, memoryToMove);
-    }
-    //dead
-    if (recordEntry.length==0){
-        //do nothing
-    }
-    //moved
-    if (recordEntry.offset<0){
-        RID rid2;
-        rid2 = rid;
+    // //alive
+    // if (recordEntry.length != 0 && recordEntry.offset > 0){
+    //     recordEntry.offset=0;
+    //     recordEntry.length = 0;
+    //     memmove(slotHeader.freeSpaceOffset + shift, slotHeader.freeSpaceOffset, memoryToMove);
+    // }
+    // //dead
+    // if (recordEntry.length==0){
+    //     //do nothing
+    // }
+    // //moved
+    // if (recordEntry.offset<0){
+    //     RID rid2;
+    //     rid2 = rid;
         
-        deleteRecord(fileHandle, recordDescriptor, rid2);
-    }
+    //     deleteRecord(fileHandle, recordDescriptor, rid2);
+    // }
 
     return 0;
 }
 
 RC updateRecord(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const void *data, const RID &rid){
     //Retrieve the specfic page
-    void * pageData = malloc(PAGE_SIZE);
-    if (fileHandle.readPage(rid.pageNum, pageData))
-        return RBFM_READ_FAILED;
+    // void * pageData = malloc(PAGE_SIZE);
+    // if (fileHandle.readPage(rid.pageNum, pageData))
+    //     return RBFM_READ_FAILED;
 
-    // Checks if the specific slot id exists in the page
-    SlotDirectoryHeader slotHeader = getSlotDirectoryHeader(pageData);
-    if(slotHeader.recordEntriesNumber < rid.slotNum)
-        return RBFM_SLOT_DN_EXIST;
+    // // Checks if the specific slot id exists in the page
+    // SlotDirectoryHeader slotHeader = getSlotDirectoryHeader(pageData);
+    // if(slotHeader.recordEntriesNumber < rid.slotNum)
+    //     return RBFM_SLOT_DN_EXIST;
 
-    // Gets the slot directory record entry data
-    SlotDirectoryRecordEntry recordEntry = getSlotDirectoryRecordEntry(pageData, rid.slotNum);
+    // // Gets the slot directory record entry data
+    // SlotDirectoryRecordEntry recordEntry = getSlotDirectoryRecordEntry(pageData, rid.slotNum);
+    return -1;
 }
 
 RC readAttribute(FileHandle &fileHandle, const vector<Attribute> &recordDescriptor, const RID &rid, const string &attributeName, void *data){
-    void* pageData = malloc(PAGE_SIZE);
+    // void* pageData = malloc(PAGE_SIZE);
+    return -1;
 
 }
 
