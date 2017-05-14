@@ -26,26 +26,26 @@ RC RelationManager::setTableData(const string &tableName, const void * data, int
 
     int offset = int(ceil((double) 2 / CHAR_BIT));
 
-    //set table id
+    //id
     memcpy((char*) data + offset, &table_id, INT_SIZE);
     offset += INT_SIZE;
 
     int32_t length = tableName.length();
-    //set the value of table name length in front of the actual string in data
+    //length of table name
     memcpy ((char*) data + offset, &(length), VARCHAR_LENGTH_SIZE);
     offset += VARCHAR_LENGTH_SIZE;
-    //set up table name into data
+    //table name
     memcpy((char*) data + offset, tableName.c_str(), length);
     offset += length;
 
     string fileName = tableName+".tbl";
     int32_t file_length = fileName.length();
      
-    //set the value of file name length in front of the actual string in data
+    //file name
     memcpy ((char*) data + offset, &(file_length), VARCHAR_LENGTH_SIZE);    
     offset += VARCHAR_LENGTH_SIZE;
 
-    //set the tableName value
+    //table name
     memcpy((char*) data + offset, tableName.c_str(), file_length);
     offset += file_length;
   
@@ -212,48 +212,39 @@ RC RelationManager::deleteCatalog()
 RC RelationManager::createTable(const string &tableName, const vector<Attribute> &attrs)
 {
     FileHandle fh;
-    RID rid;
-    void* data = malloc(PAGE_SIZE);
-    void* columnData = malloc(PAGE_SIZE);
-    const vector<Attribute> tableAttr = getTableAttr();
-    const vector<Attribute> columnAttr = getColumnAttr();
-    int index=3;
+    // cout<<"1"<<endl;
     if (rbfm->createFile(tableName)!=0) return -1;
     if (rbfm->openFile(tableName, fh)!=0) return -1;
-    // if (rbfm->openFile(tableName, fh)!=0) return -1;
-
-    if (setTableData(tableName, data, index)!=0){
-      return -1;
-    }
-
-    rbfm->insertRecord(fh, tableAttr, data, rid);
     rbfm->closeFile(fh);
-    // rbfm->closeFile(fh);
+    ++t_id;
+    // cout<<"t_id " << t_id << endl;
+    const vector<Attribute> tableAttr = getTableAttr();
+    const vector<Attribute> columnAttr = getColumnAttr();
 
+    void* data = malloc(PAGE_SIZE);
+    void* columnData = malloc(PAGE_SIZE);
     // cout<<"Data " << data << endl;
     if (data == NULL) return -1;
-
+    RID rid;
     if (rbfm->openFile("Tables.tbl", fh)!=0) return -1;
 
-    if (setTableData("Employee", data, index)!=0){
+    if (setTableData(tableName, data, t_id)!=0){
       return -1;
     }
-
     rbfm->insertRecord(fh, tableAttr, data, rid);
     rbfm->closeFile(fh);
-
     if (columnData==NULL) return -1;
     RID rid2;
 
     if (rbfm->openFile("Columns.clm", fh)!=0) return -1;
-
-    for (unsigned i=0; i<columnAttr.size(); i++){
+    for (unsigned i=1; i<attrs.size(); i++){
       if (setColumnData(tableName, attrs, columnData, i)!=0) return -1;
-      rbfm->insertRecord(fh, columnAttr, columnData, rid2);
+      rbfm->insertRecord(fh, attrs, columnData, rid2);
     }
-    rbfm->closeFile(fh);
     free(data);
     free(columnData);
+    rbfm->closeFile(fh);
+    
 
     return 0;
 }
@@ -272,8 +263,30 @@ RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &at
     return -1;
 }
 
-unsigned getTableIndex(const string &tableName){
+unsigned RelationManager::getTableIndex(const string &tableName){
   // const vector<Attribute> tableAttr = getTableAttr();
+  // FileHandle fh;
+  // RBFM_ScanIterator scanner;
+
+  // if (rbfm->openFile(tableName, fh)!=0) return -1;
+  // vector<string> attrs;
+  // attrs.push_back("table-id");
+  // attrs.push_back("table-name");
+  // attrs.push_back("file-name");
+
+  // void* data = malloc(INT_SIZE);
+  // RID rid;
+
+  // if (rbfm->scan(fh, getTableAttr(),"table-name", EQ_OP, tableName.c_str(), attrs, scanner)!=0) return -1;
+
+  // if (scanner.getNextRecord(rid, data)!=0)  return -1;
+  
+  // int id;
+  // memcpy(&id, data, INT_SIZE);
+  // scanner.close();
+
+  // rbfm->closeFile(fh);
+
   return 0;
 }
 

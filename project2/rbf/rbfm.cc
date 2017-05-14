@@ -11,6 +11,39 @@
 RecordBasedFileManager* RecordBasedFileManager::_rbf_manager = NULL;
 PagedFileManager *RecordBasedFileManager::_pf_manager = NULL;
 
+// RBFM_ScanIterator::RBFM_ScanIterator()
+// {
+//     cursor = 0;
+// }
+// RBFM_ScanIterator::~RBFM_ScanIterator()
+// {
+//     close();
+// }
+// RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data)
+// {
+//     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
+//     if(cursor < rids.size() )
+//     {
+//         rid = rids[cursor];
+//         rbfm->readRecord(fileHandle,recordDescriptor,rid,data);
+//         cursor++;
+//     }
+//     else
+//         return RBFM_EOF;
+//     return SUCCESS;
+// }
+// RC RBFM_ScanIterator::close()
+// {
+//     cursor = 0;
+//     while(rids.size() > 0 )
+//         rids.pop_back();
+//     while(recordDescriptor.size() > 0)
+//         recordDescriptor.pop_back();
+//     RecordBasedFileManager *rbfm = RecordBasedFileManager::instance();
+//     rbfm->closeFile(fileHandle);
+//     return SUCCESS;
+// }
+
 RecordBasedFileManager* RecordBasedFileManager::instance()
 {
     if(!_rbf_manager)
@@ -289,7 +322,7 @@ RC scan(FileHandle &fileHandle,
       const void *value,                    // used in the comparison
       const vector<string> &attributeNames, // a list of projected attributes
       RBFM_ScanIterator &rbfm_ScanIterator){
-
+    return 0;
 }
 
 // Private helper methods

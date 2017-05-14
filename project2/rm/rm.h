@@ -76,7 +76,8 @@ protected:
 
 private:
   static RelationManager *_rm;
-  static RecordBasedFileManager* rbfm; 
+  static RecordBasedFileManager* rbfm;
+  int t_id = 2; 
   vector<Attribute> getTableAttr();
   vector<Attribute> getColumnAttr();
   void* catalogInfo(unsigned i);
