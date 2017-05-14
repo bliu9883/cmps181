@@ -62,8 +62,6 @@ typedef struct SlotDirectoryHeader
     uint16_t recordEntriesNumber;
 } SlotDirectoryHeader;
 
-typedef SlotDirectoryHeader SDH;
-
 // Assignment 2 tip: Make offset negative to represent a forwarding address
 // Negative offset => length = page #, offset = -slot #
 typedef struct SlotDirectoryRecordEntry
@@ -94,60 +92,27 @@ The scan iterator is NOT required to be implemented for the part 1 of the projec
 //  }
 //  rbfmScanIterator.close();
 
-class RecordBasedFileManager;
-
 class RBFM_ScanIterator {
-friend class RecordBasedFileManager;
 public:
-  RBFM_ScanIterator() {};
-  RBFM_ScanIterator(FileHandle &fileHandle,
-      const vector<Attribute> &recordDescriptor,
-      const string &conditionAttribute,
-       const CompOp compOp, 
-       const void *value,
-       const vector<string> &attributeNames);
-  RBFM_ScanIterator(RBFM_ScanIterator&);
-  ~RBFM_ScanIterator() {};
-
-  RBFM_ScanIterator& operator=(RBFM_ScanIterator& scan_itor);
-
-  void setup(FileHandle &fileHandle,
-      const vector<Attribute> &recordDescriptor,
-      const string &conditionAttribute,
-       const CompOp compOp, 
-       const void *value,
-       const vector<string> &attributeNames);
-
-  bool meetCondition();
+  RBFM_ScanIterator();
+  ~RBFM_ScanIterator();
 
   // Never keep the results in the memory. When getNextRecord() is called, 
   // a satisfying record needs to be fetched from the file.
   // "data" follows the same format as RecordBasedFileManager::insertRecord().
   RC getNextRecord(RID &rid, void *data);
   RC close();
+  // vector<Attribute> recordDescriptor;
+  // vector<RID> rids;
+  // FileHandle fileHandle;
 
-
-  bool error_setup = false;
-private:
-  FileHandle* handle;
-  RecordBasedFileManager* rbfm;
-  void* page;
-  const void* val;
-  vector<Attribute> r_descriptor;
-  vector<RID> records;
-  vector<string> attr_name;
-  AttrType attr_type;
-  unsigned index;
-  string condition_attr;
-  CompOp compare_op;
-  int num_of_slots_on_page,num_of_pages;
-  int working_page=0,working_slot=0;
+// private:
+//   unsigned cursor;
 };
 
 
 class RecordBasedFileManager
 {
-  friend class RBFM_ScanIterator;
 public:
   static RecordBasedFileManager* instance();
 
@@ -231,9 +196,6 @@ private:
 
   void setRecordAtOffset(void *page, unsigned offset, const vector<Attribute> &recordDescriptor, const void *data);
   void getRecordAtOffset(void *record, unsigned offset, const vector<Attribute> &recordDescriptor, void *data);
-
-  void compact(FileHandle& fileHandle, void* page, uint32_t pageNum);
-  void getAttribute(void* page, void* data, SlotDirectoryRecordEntry s_entry,unsigned index,AttrType attr_type);
 };
 
 #endif
