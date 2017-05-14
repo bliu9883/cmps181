@@ -212,23 +212,55 @@ RC RelationManager::deleteCatalog()
 RC RelationManager::createTable(const string &tableName, const vector<Attribute> &attrs)
 {
     FileHandle fh;
-    
+    RID rid;
+    void* data = malloc(PAGE_SIZE);
+    void* columnData = malloc(PAGE_SIZE);
+    const vector<Attribute> tableAttr = getTableAttr();
+    const vector<Attribute> columnAttr = getColumnAttr();
+    int index=3;
     if (rbfm->createFile(tableName)!=0) return -1;
     if (rbfm->openFile(tableName, fh)!=0) return -1;
+    // if (rbfm->openFile(tableName, fh)!=0) return -1;
 
-    int index=3;
-    const vector<Attribute> tableAttr = getTableAttr();
+    if (setTableData(tableName, data, index)!=0){
+      return -1;
+    }
 
-    void* data = malloc(PAGE_SIZE);
+    rbfm->insertRecord(fh, tableAttr, data, rid);
+    rbfm->closeFile(fh);
+    // rbfm->closeFile(fh);
+
+    // cout<<"Data " << data << endl;
     if (data == NULL) return -1;
-    RID rid;
 
-    return -1;
+    if (rbfm->openFile("Tables.tbl", fh)!=0) return -1;
+
+    if (setTableData("Employee", data, index)!=0){
+      return -1;
+    }
+
+    rbfm->insertRecord(fh, tableAttr, data, rid);
+    rbfm->closeFile(fh);
+
+    if (columnData==NULL) return -1;
+    RID rid2;
+
+    if (rbfm->openFile("Columns.clm", fh)!=0) return -1;
+
+    for (unsigned i=0; i<columnAttr.size(); i++){
+      if (setColumnData(tableName, attrs, columnData, i)!=0) return -1;
+      rbfm->insertRecord(fh, columnAttr, columnData, rid2);
+    }
+    rbfm->closeFile(fh);
+    free(data);
+    free(columnData);
+
+    return 0;
 }
 
 RC RelationManager::deleteTable(const string &tableName)
 {
-    return -1;
+    return (rbfm->destroyFile(tableName));
 }
 
 RC RelationManager::getAttributes(const string &tableName, vector<Attribute> &attrs)

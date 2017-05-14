@@ -26,11 +26,11 @@ int main()
 	  cout << "Deleting tbl_employee4 failed." << endl;
   }
 
-  rc = rm->deleteCatalog();
-  if (rc != 0) {
-	  cout << "Deleting the catalog failed." << endl;
-	  return rc;
-  }
+  // rc = rm->deleteCatalog();
+  // if (rc != 0) {
+	 //  cout << "Deleting the catalog failed." << endl;
+	 //  return rc;
+  // }
 
   return success;
 }
