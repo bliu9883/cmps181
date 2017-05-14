@@ -141,7 +141,6 @@ RC RecordBasedFileManager::insertRecord(FileHandle &fileHandle, const vector<Att
         cout << "writing" << endl;
         int result = fileHandle.writePage(pageNum, page);
         if(result != 0) cout << "write failed " << endl;
-            
     }else{
         cout << "appending" << endl;
         int result = fileHandle.appendPage(page);
