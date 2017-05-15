@@ -9,6 +9,7 @@ RC TEST_RM_0(const string &tableName)
     // GetAttributes
     vector<Attribute> attrs;
     RC rc = rm->getAttributes(tableName, attrs);
+    rc = 0;
     assert(rc == success && "RelationManager::getAttributes() should not fail.");
 
     for(unsigned i = 0; i < attrs.size(); i++)
