@@ -38,6 +38,7 @@ public:
 // Relation Manager
 class RelationManager
 {
+  friend class RecordBasedFileManager;
 public:
   static RelationManager* instance();
 
@@ -89,6 +90,11 @@ private:
   unsigned getTableIndex(const string &tableName);
   RC setTableData(const string &tableName, const void * data, int table_id);
   RC setColumnData(const string &tableName, vector<Attribute> columAttr, const void * data, int id);
+  RC put_to_table(string name,int table_id, bool system);
+  RC put_to_column(int table_id, const vector<Attribute> &rs);
+  RC next_table(int &table_id);
+  unsigned getTableIdFromName(const string &tableName, int& table_id);
+
 };
 
 #endif

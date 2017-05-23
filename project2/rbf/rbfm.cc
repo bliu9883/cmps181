@@ -470,6 +470,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data) {
         //get next page and first slot
         working_page +=1;
         if(working_page > num_of_pages) return RBFM_EOF;
+        //cout << "before rbfm read page " << endl;
         if(handle->readPage(working_page,page)) return RBFM_READ_FAILED;
         //update num of slots for this new page
         SDH s_header = rbfm->getSlotDirectoryHeader(page);
@@ -480,13 +481,16 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data) {
     //make sure record is valid(meets the condition and is live) 
     SlotDirectoryRecordEntry s_entry = rbfm->getSlotDirectoryRecordEntry(page,working_slot);
     while(s_entry.offset <= 0 || !meetCondition()) {
+        //cout << "offset is " << s_entry.offset << endl;
         //get next slot
         working_slot += 1;
         if(working_slot > num_of_slots_on_page) {
         //get next page and first slot
             working_page +=1;
             if(working_page > num_of_pages) return RBFM_EOF;
-            if(handle->readPage(working_page,page)) return RBFM_READ_FAILED;
+            //cout << "before rbfm read page 2nd " << endl;
+            //cout << "WORKING PAGE IS " << working_page << " and total is " << num_of_pages << endl;
+            if(handle->readPage(working_page,page)) return 0;
         //update num of slots for this new page
             SDH s_header = rbfm->getSlotDirectoryHeader(page);
             num_of_slots_on_page = s_header.recordEntriesNumber;
@@ -520,6 +524,7 @@ RC RBFM_ScanIterator::getNextRecord(RID &rid, void *data) {
         
         //got the right index/type, so write into temp the record
         rbfm->getAttribute(page,temp_data,s_entry,index,type);
+        //cout << "IN HERE" << endl;
         //check to see if attribute has null bit set
         //COULD BE ERROR HERE(USE CHAR INSTEAD)
         char temp;

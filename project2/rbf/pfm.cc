@@ -123,15 +123,18 @@ RC FileHandle::readPage(PageNum pageNum, void *data)
     if (getNumberOfPages() < pageNum)
         return FH_PAGE_DN_EXIST;
 
+    //cout << "before seek" << endl;
     // Try to seek to the specified page
     if (fseek(_fd, PAGE_SIZE * pageNum, SEEK_SET))
         return FH_SEEK_FAILED;
-
+    //cout << "before fread" << endl;
     // Try to read the specified page
     if (fread(data, 1, PAGE_SIZE, _fd) != PAGE_SIZE)
         return FH_READ_FAILED;
 
+    //cout << "after fread" << endl;
     readPageCounter++;
+    //cout << "right before return" << endl;
     return SUCCESS;
 }
 
