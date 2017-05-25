@@ -16,10 +16,32 @@ typedef int16_t medInt;
 typedef int32_t largeInt;
 
 typedef struct {
-    uMedInt numOfKey;
-    uMedInt freeOffset;
+    uMedInt numOfItem;
+    uMedInt emptySlotStart;
     uLargeInt childPageNum;
 }NodeInfo;
+
+typedef struct {
+    uMedInt emptySlotStart;
+    uMedInt numOfItem;
+    uLargeInt leftSibling;
+    uLargeInt rightSibling;
+}LeafInfo;
+
+typedef struct {
+    largeInt offset;
+    uLargeInt childPageNum;
+}Index;
+
+typedef struct {
+    largeInt offset;
+    RID rid;
+}DataEntry;
+
+typedef struct {
+    uLargeInt pageNum;
+    void* key;
+}TempNode;
 
 class IX_ScanIterator;
 class IXFileHandle;
@@ -67,6 +89,14 @@ class IndexManager {
     private:
         static IndexManager *_index_manager;
         PagedFileManager *pfm;
+
+        RC insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribute, const void* key, const RID &rid, TempNode &node, largeInt rootPageNum);
+        RC InsertIndex();
+        RC InsertLeaf();
+        RC splitNode();
+        RC splitLeaf();
+        largeInt getChildPage(void* page, const Attribute& attribute, const void* key);
+
 };
 
 
