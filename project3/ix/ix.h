@@ -91,10 +91,8 @@ class IndexManager {
         PagedFileManager *pfm;
 
         RC insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribute, const void* key, const RID &rid, TempNode &node, largeInt rootPageNum);
-        RC InsertIndex();
-        RC InsertLeaf();
-        RC splitNode();
-        RC splitLeaf();
+        RC InsertIndex(void* page, const Attribute& attr, TempNode& nodeToInsert);
+        RC InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key);
         largeInt getChildPage(void* page, const Attribute& attribute, const void* key);
 
 };

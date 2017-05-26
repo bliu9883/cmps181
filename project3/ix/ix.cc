@@ -143,97 +143,196 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
 
     if(nodeType == 1) {
         //INSERT INTO LEAF
-        LeafInfo leaf;
-        memcpy(&leaf, page,sizeof(LeafInfo));
-        largeInt sizeofkey;
-        if(attribute.type == TypeVarChar) {
-            largeInt varlen;
-            memcpy(&varlen,key,4);
-            sizeofkey = sizeof(DataEntry);
-            sizeofkey += (4+varlen);
-        }else{
-            sizeofkey = sizeof(DataEntry);
-        }
-
-        //get free space for leaf to see if will fit
-        largeInt freeSpace = PAGE_SIZE - leaf.emptySlotStart;
-        if(freeSpace < sizeofkey) {
-            //got to split the leaf node
-
-        }else{
-            int slotNum=0;
-            for(int i=0;i<leaf.numOfItem;i++) {
-                int comparison = 0;
-                if(attribute.type == TypeInt) {
-                    Index index;
-                    memcpy(&index, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(Index)), sizeof(Index));
-                    largeInt _key;
-                    memcpy(&_key,key,4);
-                    if(_key == index.offset) comparison = 0;
-                    if(_key > index.offset) comparison = 1;
-                    if(_key < index.offset) comparison = -1;
-                }else if(attribute.type == TypeReal) {
-                    Index index;
-                    memcpy(&index, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(Index)), sizeof(Index));
-                    largeInt _key;
-                    memcpy(&_key,key,4);
-                    if(_key == index.offset) comparison = 0;
-                    if(_key > index.offset) comparison = 1;
-                    if(_key < index.offset) comparison = -1;
-                }else if(attribute.type == TypeVarChar) {
-            //use varchar offset to get the value and use that for comparison
-                    largeInt varcharsize;
-                    memcpy(&varcharsize,key,4);
-                    char _key[varcharsize+1];
-                    memcpy(&_key,(char*)key+4,varcharsize);
-                    _key[varcharsize] = '\0';
-
-                    Index index;
-                    memcpy(&index, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(Index)), sizeof(Index));
-                    largeInt varcharsize2;
-                    memcpy(&varcharsize2,(char*)page+index.offset,4);
-                    char val[varcharsize2+1];
-                    memcpy(&val,(char*)page+index.offset+4,varcharsize2);
-                    val[varcharsize2]='\0';
-                    comparison = strcmp(_key,val);
-                }
-                if(comparison <= 0) {
-                    slotNum = i;
-                    break;
-                }
-            }
-
-            unsigned entryBegin = 1+sizeof(LeafInfo) + slotNum*sizeof(DataEntry);
-            unsigned entryEnd = 1+sizeof(LeafInfo)+ leaf.numOfItem*sizeof(DataEntry);
-
-            //make space for the new entry
-            memmove((char*)page+entryBegin+sizeof(DataEntry), (char*)page+entryBegin, entryEnd-entryBegin);
-
-            DataEntry entry;
-            if(attribute.type == TypeVarChar) {
-                largeInt keysize;
-                memcpy(&keysize,key,4);
-                entry.offset = leaf.emptySlotStart;
-                memcpy((char*)page+entry.offset, key, keysize+4);
-                leaf.emptySlotStart = entry.offset+(keysize+4);
-            }else{
-                memcpy(&(entry.offset),key,4);
-            }
-            entry.rid = rid;
-            leaf.numOfItem++;
+        int result = InsertLeaf(page,attribute,rid,key);
+        if(result != 0) {
+            LeafInfo leaf;
+            memcpy(&leaf,(char*)page+1,sizeof(LeafInfo));
+            //SPLIT LEAF START
+            void* splitleaf = malloc(PAGE_SIZE);
+            unsigned type = 1;
+            memcpy(splitleaf,&type,sizeof(char));
+            LeafInfo splitleafinfo;
+            splitleafinfo.leftSibling = rootPageNum;
+            splitleafinfo.rightSibling = leaf.rightSibling;
+            splitleafinfo.numOfItem = 0;
+            splitleafinfo.emptySlotStart = 1+sizeof(LeafInfo);
+            memcpy((char*)splitleaf+1,&splitleafinfo,sizeof(LeafInfo));
+            largeInt splitpagenum = ixfileHandle.getNumberOfPages();
+            leaf.rightSibling = splitpagenum;
             memcpy((char*)page+1,&leaf,sizeof(LeafInfo));
-            unsigned setentryoffset = 1+sizeof(LeafInfo)+slotNum*sizeof(DataEntry);
-            memcpy((char*)page+setentryoffset,&entry,sizeof(DataEntry));
-            //insert into leaf end
 
-            if(ixfileHandle.writePage(rootPageNum,page)) return -1;
+            int splitsize=0;
+            int slotNum=0;
+            int oldsize=0;
+            for(int i=0;i<leaf.numOfItem;i++) {
+                //find the first key of split leaf to copy up to parent
+                DataEntry entry;
+                memcpy(&entry,(char*)+1+sizeof(LeafInfo)+i*sizeof(DataEntry),sizeof(DataEntry));
+                void* middlekey = nullptr;
+
+                if(attribute.type == TypeVarChar) {
+                    middlekey = (char*)page+entry.offset;
+                }else{
+                    middlekey = &(entry.offset);
+                }
+                //oldsize = getkeylengthleaf STARTS HERE
+                if(attribute.type == TypeVarChar) {
+                    largeInt tempkeylen;
+                    memcpy(&tempkeylen,middlekey,4);
+                    oldsize+=4;
+                    oldsize+=tempkeylen;
+                }else{
+                    oldsize = sizeof(DataEntry);
+                }
+                //getkeylengthleaf ends here. basically key len is size of dataentry except for varchar
+                splitsize += oldsize;
+                if(splitsize >= PAGE_SIZE/2) {
+                    //compleafslot start
+                    int comparison = 0;
+                    if(attribute.type == TypeInt) {
+                        DataEntry entry;
+                        memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+((i+1)*sizeof(DataEntry)), sizeof(DataEntry));
+                        largeInt _key;
+                        memcpy(&_key,middlekey,4);
+                        if(_key == entry.offset) comparison = 0;
+                        if(_key > entry.offset) comparison = 1;
+                        if(_key < entry.offset) comparison = -1;
+                    }else if(attribute.type == TypeReal) {
+                        DataEntry entry;
+                        memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+((i+1)*sizeof(DataEntry)), sizeof(DataEntry));
+                        largeInt _key;
+                        memcpy(&_key,middlekey,4);
+                        if(_key == entry.offset) comparison = 0;
+                        if(_key > entry.offset) comparison = 1;
+                        if(_key < entry.offset) comparison = -1;
+                    }else if(attribute.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+                        largeInt varcharsize;
+                        memcpy(&varcharsize,middlekey,4);
+                        char _key[varcharsize+1];
+                        memcpy(&_key,(char*)middlekey+4,varcharsize);
+                        _key[varcharsize] = '\0';
+                        DataEntry entry;
+                        memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+((i+1)*sizeof(DataEntry)), sizeof(DataEntry));
+                        largeInt varcharsize2;
+                        memcpy(&varcharsize2,(char*)page+entry.offset,4);
+                        char val[varcharsize2+1];
+                        memcpy(&val,(char*)page+entry.offset+4,varcharsize2);
+                        val[varcharsize2]='\0';
+                        comparison = strcmp(_key,val);
+                    }
+
+                    //compleafend, comparison is the return value
+                    if(i>=leaf.numOfItem-1 || comparison != 0) {
+                        slotNum = i;
+                        break;
+                    }    
+                }
+            }
+
+            DataEntry mid;
+            memcpy(&mid,(char*)page+1+sizeof(LeafInfo)+slotNum*sizeof(DataEntry),sizeof(DataEntry));
+            node.key = malloc(oldsize);
+            node.pageNum = splitpagenum;
+            int ksize = 4;
+            if(attribute.type == TypeVarChar) {
+                ksize = oldsize-sizeof(DataEntry);
+            }
+            if(attribute.type == TypeVarChar) {
+                memcpy(node.key,(char*)page+mid.offset,ksize);
+            }else{
+                memcpy(node.key,&(mid.offset), ksize);
+            }
+            void* keytomove = malloc(attribute.length+4);
+            for(int i=1;i<leaf.numOfItem-slotNum;i++) {
+                DataEntry entry;
+                memcpy(&entry,(char*)page+1+sizeof(LeafInfo)+(slotNum+1)*sizeof(DataEntry),sizeof(DataEntry));
+                RID ridtomove = entry.rid;
+                if(attribute.type == TypeVarChar) {
+                    largeInt keylen;
+                    memcpy(&keylen,(char*)page+entry.offset,4);
+                    memcpy(keytomove,&keylen,4);
+                    memcpy((char*)keytomove+4,(char*)page+entry.offset+4,keylen);
+                }else{
+                    memcpy(keytomove,&(entry.offset),4);
+                }
+
+                //insert dataentry into newly split leaf
+                InsertLeaf(splitleaf,attribute,ridtomove,keytomove);
+                //insert ends here 
+                //delete old entry from old leaf
+                //delete ends here
+            }
+            free(keytomove);
+
+            int comparison = 0;
+            if(attribute.type == TypeInt) {
+                DataEntry entry;
+                memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+((slotNum+1)*sizeof(DataEntry)), sizeof(DataEntry));
+                largeInt _key;
+                memcpy(&_key,key,4);
+                if(_key == entry.offset) comparison = 0;
+                if(_key > entry.offset) comparison = 1;
+                if(_key < entry.offset) comparison = -1;
+            }else if(attribute.type == TypeReal) {
+                DataEntry entry;
+                memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+((slotNum+1)*sizeof(DataEntry)), sizeof(DataEntry));
+                largeInt _key;
+                memcpy(&_key,key,4);
+                if(_key == entry.offset) comparison = 0;
+                if(_key > entry.offset) comparison = 1;
+                if(_key < entry.offset) comparison = -1;
+            }else if(attribute.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+                largeInt varcharsize;
+                memcpy(&varcharsize,key,4);
+                char _key[varcharsize+1];
+                memcpy(&_key,(char*)key+4,varcharsize);
+                _key[varcharsize] = '\0';
+
+                DataEntry entry;
+                memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+((slotNum+1)*sizeof(DataEntry)), sizeof(DataEntry));
+                largeInt varcharsize2;
+                memcpy(&varcharsize2,(char*)page+entry.offset,4);
+                char val[varcharsize2+1];
+                memcpy(&val,(char*)page+entry.offset+4,varcharsize2);
+                val[varcharsize2]='\0';
+                comparison = strcmp(_key,val);
+            }
+
+            if(comparison <= 0) {
+                if(InsertLeaf(page,attribute,rid,key)) {
+                    free(splitleaf);
+                    return -1;
+                }
+            }else{
+                if(InsertLeaf(splitleaf,attribute,rid,key)) {
+                    free(splitleaf);
+                    return -1;
+                }
+            }
+
+            //everything went through, just write old leaf page and append new leaf page
+            if(ixfileHandle.writePage(rootPageNum,page)) {
+                free(splitleaf); 
+                return -1;
+            }
+            if(ixfileHandle.appendPage(splitleaf)) {
+                free(splitleaf);
+                return -1;
+            }
+            free(splitleaf);
             free(page);
+            return 0;
+        }else{
+            if(ixfileHandle.writePage(rootPageNum,page)) return -1;
             free(node.key);
+            free(page);
             node.key = nullptr;
             node.pageNum = -1;
-            return 0;
+            return 0;  
         }
-    }else {
+    }else{
         //if not leaf, get child node and recursively insert
         largeInt childPageNum = getChildPage(page,attribute,key);
         if(insertUtil(ixfileHandle,attribute,key,rid,node,childPageNum) == -1) {
@@ -243,44 +342,282 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
         if(node.pageNum == -1 && node.key == nullptr) {
             return 0;
         }
-        //if temp not reset, then it means leaf split, and need to copy up the first index of the second node from split
-        void* page = malloc(PAGE_SIZE);
+    //if temp not reset, then it means leaf split, and need to copy up the first index of the second node from split
+        page = malloc(PAGE_SIZE);
         if(ixfileHandle.readPage(rootPageNum,page)) return -1;
-        if(InsertIndex() == -1) {
-            if(splitNode() == -1) {
-                free(page);
-                return -1;
+        int result = InsertIndex(page,attribute,node);
+        if(result == -1) {
+            //split internal
+            //split internal uses ixfilehandle, attribute, rootpagenum,page,node
+            NodeInfo info;
+            memcpy(&info,(char*)page+1,sizeof(NodeInfo));
+
+            largeInt splitpagenum = ixfileHandle.getNumberOfPages();
+
+            int splitsize = 0;
+            int slotNum = 0;
+            int oldsize = 0;
+
+            for(int i=0;i<info.numOfItem;i++) {
+                //find the first key of split leaf to copy up to parent
+                Index index;
+                memcpy(&index,(char*)+1+sizeof(NodeInfo)+i*sizeof(Index),sizeof(Index));
+                void* middlekey = nullptr;
+
+                if(attribute.type == TypeVarChar) {
+                    middlekey = (char*)page+index.offset;
+                }else{
+                    middlekey = &(index.offset);
+                }
+                //oldsize = getkeylengthleaf STARTS HERE
+                if(attribute.type == TypeVarChar) {
+                    largeInt tempkeylen;
+                    memcpy(&tempkeylen,middlekey,4);
+                    oldsize+=4;
+                    oldsize+=tempkeylen;
+                }else{
+                    oldsize = sizeof(Index);
+                }
+                //getkeylengthleaf ends here. basically key len is size of dataentry except for varchar
+                splitsize += oldsize;
+                if(splitsize >= PAGE_SIZE/2) {
+                    slotNum  = i;
+                    break;
+                }
             }
-            free(page);
-            return 0;
+
+            Index middleIndex;
+            memcpy(&middleIndex,(char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index), sizeof(Index));
+
+            void* splitindexpage = malloc(PAGE_SIZE);
+            unsigned type = 0;
+            memcpy(splitindexpage,&type,sizeof(char));
+            NodeInfo newInfo;
+            newInfo.numOfItem = 0;
+            newInfo.emptySlotStart = 1+sizeof(NodeInfo);
+            newInfo.childPageNum = middleIndex.childPageNum;
+            memcpy((char*)splitindexpage+1,&newInfo,sizeof(NodeInfo));
+
+            int ksize = 4;
+            if(attribute.type == TypeVarChar) {
+                ksize = oldsize-sizeof(Index);
+            }
+            void* middlekey = malloc(ksize);
+            if(attribute.type == TypeVarChar) {
+                memcpy(middlekey,(char*)page+middleIndex.offset,ksize);
+            }else{
+                memcpy(middlekey, &(middleIndex.offset), 4);
+            }
+
+            void* keytomove = malloc(attribute.length+4);
+
+            for(int i=1;i<info.numOfItem-slotNum;i++) {
+                Index index;
+                memcpy(&index,(char*)page+1+sizeof(NodeInfo)+(slotNum+1)*sizeof(Index),sizeof(Index));
+                largeInt pagetomove = index.childPageNum;
+                if(attribute.type == TypeVarChar) {
+                    largeInt keylen;
+                    memcpy(&keylen,(char*)page+index.offset,4);
+                    memcpy(keytomove,&keylen,4);
+                    memcpy((char*)keytomove+4,(char*)page+index.offset+4,keylen);
+                }else{
+                    memcpy(keytomove,&(index.offset),4);
+                }
+
+                TempNode nodeToInsert;
+                nodeToInsert.key = keytomove;
+                nodeToInsert.pageNum = pagetomove;
+                InsertIndex(splitindexpage,attribute,nodeToInsert);
+                //delete internal uses attribute, keytomove,page
+
+
+
+            }
+            free(keytomove);
+            //delete internal with attribute,middlekey,page
+
+            //compareslot
+
+
         }else{
             if(ixfileHandle.writePage(rootPageNum,page)) {
                 free(node.key);
                 node.key = nullptr;
                 node.pageNum = -1;
+                free(page);
                 return -1;
             }
             free(node.key);
             node.key = nullptr;
             node.pageNum = -1;
+            free(page);
             return 0;
         }
     }
 }
 
 
-RC IndexManager::InsertIndex(){
 
-}
-RC IndexManager::InsertLeaf(){
+RC IndexManager::InsertIndex(void* page, const Attribute& attr, TempNode& nodeToInsert) {
 
-}
-RC IndexManager::splitNode(){
+    NodeInfo index;
+    memcpy(&index,(char*)page+1,sizeof(NodeInfo));
+    largeInt keysize = sizeof(Index);
+    if(attr.type == TypeVarChar) {
+        largeInt temp_len;
+        memcpy(&temp_len,nodeToInsert.key,4);
+        keysize += (temp_len+4);
+    }
 
-}
-RC IndexManager::splitLeaf(){
+    largeInt freeSpace = PAGE_SIZE - index.emptySlotStart;
+    if(freeSpace < keysize) return -1;
+    int slotNum = 0;
+    for(int i=0;i<index.numOfItem;i++) {
+        int comparison = 0;
+        if(attr.type == TypeInt) {
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index), sizeof(Index));
+            largeInt _key;
+            memcpy(&_key,nodeToInsert.key,4);
+            if(_key == index.offset) comparison = 0;
+            if(_key > index.offset) comparison = 1;
+            if(_key < index.offset) comparison = -1;
+        }else if(attr.type == TypeReal) {
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index), sizeof(Index));
+            largeInt _key;
+            memcpy(&_key,nodeToInsert.key,4);
+            if(_key == index.offset) comparison = 0;
+            if(_key > index.offset) comparison = 1;
+            if(_key < index.offset) comparison = -1;
+        }else if(attr.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+            largeInt varcharsize;
+            memcpy(&varcharsize,nodeToInsert.key,4);
+            char _key[varcharsize+1];
+            memcpy(&_key,(char*)nodeToInsert.key+4,varcharsize);
+            _key[varcharsize] = '\0';
 
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index), sizeof(Index));
+            largeInt varcharsize2;
+            memcpy(&varcharsize2,(char*)page+index.offset,4);
+            char val[varcharsize2+1];
+            memcpy(&val,(char*)page+index.offset+4,varcharsize2);
+            val[varcharsize2]='\0';
+            comparison = strcmp(_key,val);
+        }
+        if(comparison <= 0) {
+            slotNum = i;
+            break;
+        }
+    }
+
+    unsigned entryBegin = 1+sizeof(NodeInfo) + slotNum*sizeof(Index);
+    unsigned entryEnd = 1+sizeof(NodeInfo)+ index.numOfItem*sizeof(Index);
+
+    memmove((char*)page+entryBegin+sizeof(Index), (char*)page+entryBegin, entryEnd-entryBegin);
+
+    Index indexToInsert;
+    indexToInsert.childPageNum = nodeToInsert.pageNum;
+    if(attr.type == TypeVarChar) {
+        largeInt temp;
+        memcpy(&temp,nodeToInsert.key,4);
+        indexToInsert.offset = index.emptySlotStart;
+        memcpy((char*)page+indexToInsert.offset, nodeToInsert.key, temp+4);
+        index.emptySlotStart = indexToInsert.offset+(keysize+4);
+    }else{
+        memcpy(&(indexToInsert.offset),nodeToInsert.key,4);
+    }
+    index.numOfItem++;
+    //write in the udpated values for the new index and the directory
+    memcpy((char*)page+1,&index,sizeof(NodeInfo));
+    memcpy((char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index), &indexToInsert, sizeof(Index));
+    return 0;
 }
+
+RC IndexManager::InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key) {
+     //INSERT INTO LEAF
+    LeafInfo leaf;
+    memcpy(&leaf, page,sizeof(LeafInfo));
+    largeInt sizeofkey;
+    if(attr.type == TypeVarChar) {
+        largeInt varlen;
+        memcpy(&varlen,key,4);
+        sizeofkey = sizeof(DataEntry);
+        sizeofkey += (4+varlen);
+    }else{
+        sizeofkey = sizeof(DataEntry);
+    }
+        //get free space for leaf to see if will fit
+    largeInt freeSpace = PAGE_SIZE - leaf.emptySlotStart;
+    if(freeSpace < sizeofkey) return -1;
+    int slotNum=0;
+    for(int i=0;i<leaf.numOfItem;i++) {
+        int comparison = 0;
+        if(attr.type == TypeInt) {
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(DataEntry)), sizeof(DataEntry));
+            largeInt _key;
+            memcpy(&_key,key,4);
+            if(_key == entry.offset) comparison = 0;
+            if(_key > entry.offset) comparison = 1;
+            if(_key < entry.offset) comparison = -1;
+        }else if(attr.type == TypeReal) {
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(DataEntry)), sizeof(DataEntry));
+            largeInt _key;
+            memcpy(&_key,key,4);
+            if(_key == entry.offset) comparison = 0;
+            if(_key > entry.offset) comparison = 1;
+            if(_key < entry.offset) comparison = -1;
+        }else if(attr.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+            largeInt varcharsize;
+            memcpy(&varcharsize,key,4);
+            char _key[varcharsize+1];
+            memcpy(&_key,(char*)key+4,varcharsize);
+            _key[varcharsize] = '\0';
+
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(DataEntry)), sizeof(DataEntry));
+            largeInt varcharsize2;
+            memcpy(&varcharsize2,(char*)page+entry.offset,4);
+            char val[varcharsize2+1];
+            memcpy(&val,(char*)page+entry.offset+4,varcharsize2);
+            val[varcharsize2]='\0';
+            comparison = strcmp(_key,val);
+        }
+        if(comparison <= 0) {
+            slotNum = i;
+            break;
+        }
+    }
+
+    unsigned entryBegin = 1+sizeof(LeafInfo) + slotNum*sizeof(DataEntry);
+    unsigned entryEnd = 1+sizeof(LeafInfo)+ leaf.numOfItem*sizeof(DataEntry);
+
+            //make space for the new entry
+    memmove((char*)page+entryBegin+sizeof(DataEntry), (char*)page+entryBegin, entryEnd-entryBegin);
+
+    DataEntry entry;
+    if(attr.type == TypeVarChar) {
+        largeInt keysize;
+        memcpy(&keysize,key,4);
+        entry.offset = leaf.emptySlotStart;
+        memcpy((char*)page+entry.offset, key, keysize+4);
+        leaf.emptySlotStart = entry.offset+(keysize+4);
+    }else{
+        memcpy(&(entry.offset),key,4);
+    }
+    entry.rid = rid;
+    leaf.numOfItem++;
+    memcpy((char*)page+1,&leaf,sizeof(LeafInfo));
+    unsigned setentryoffset = 1+sizeof(LeafInfo)+slotNum*sizeof(DataEntry);
+    memcpy((char*)page+setentryoffset,&entry,sizeof(DataEntry));
+    return 0;
+}
+
 
 
 largeInt IndexManager::getChildPage(void* page, const Attribute& attribute, const void* key) {
