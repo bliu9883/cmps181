@@ -618,6 +618,87 @@ RC IndexManager::InsertLeaf(void* page,const Attribute& attr,const RID& rid, con
     return 0;
 }
 
+RC IndexManager::deleteIndex(void* page, const Attribute& attr, TempNode& nodetoDelete) {
+    NodeInfo info;
+    memcpy(&info,(char*)page+1,sizeof(NodeInfo));
+    largeInt numOfItem = info.numOfItem;
+
+    int slotNum = 0;
+    for(int i=0;i<info.numOfItem;i++) {
+        int comparison = 0;
+        if(attr.type == TypeInt) {
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index), sizeof(Index));
+            largeInt _key;
+            memcpy(&_key,nodetoDelete.key,4);
+            if(_key == index.offset) comparison = 0;
+            if(_key > index.offset) comparison = 1;
+            if(_key < index.offset) comparison = -1;
+        }else if(attr.type == TypeReal) {
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index), sizeof(Index));
+            largeInt _key;
+            memcpy(&_key,nodetoDelete.key,4);
+            if(_key == index.offset) comparison = 0;
+            if(_key > index.offset) comparison = 1;
+            if(_key < index.offset) comparison = -1;
+        }else if(attr.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+            largeInt varcharsize;
+            memcpy(&varcharsize,nodetoDelete.key,4);
+            char _key[varcharsize+1];
+            memcpy(&_key,(char*)nodetoDelete.key+4,varcharsize);
+            _key[varcharsize] = '\0';
+
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index), sizeof(Index));
+            largeInt varcharsize2;
+            memcpy(&varcharsize2,(char*)page+index.offset,4);
+            char val[varcharsize2+1];
+            memcpy(&val,(char*)page+index.offset+4,varcharsize2);
+            val[varcharsize2]='\0';
+            comparison = strcmp(_key,val);
+        }
+        if(comparison <= 0) {
+            slotNum = i;
+            break;
+        }
+    }
+
+    if(slotNum == numOfItem) return -1;
+
+    Index index;
+    memcpy(&index,(char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index),sizeof(Index));
+
+    unsigned entryBegin = 1+sizeof(NodeInfo) + slotNum*sizeof(Index);
+    unsigned entryEnd = 1+sizeof(NodeInfo)+ info.numOfItem*sizeof(Index);
+
+    memmove((char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index), (char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index)+sizeof(Index), (1+sizeof(NodeInfo)+ info.numOfItem*sizeof(Index))-(1+sizeof(NodeInfo) + slotNum*sizeof(Index))-sizeof(Index));
+    info.numOfItem--;
+    if(attr.type == TypeVarChar) {
+        largeInt len;
+        largeInt offset = index.offset;
+        memcpy(&len,(char*)page+index.offset,4);
+        len+=4;
+        //freespaceoffset = pagesize-emptyslotstart-1-sizeof(NodeInfo);
+        memmove((char*)page+info.emptySlotStart-len,(char*)page+info.emptySlotStart,index.offset-info.emptySlotStart);
+        info.emptySlotStart-=len;
+        for(int i=0;i<info.numOfItem;i++) {
+            Index index;
+            memcpy(&index, (char*)page+1+sizeof(NodeInfo)+i*sizeof(Index),sizeof(Index));
+            if(index.offset<offset) index.offset -= len;
+            memcpy((char*)page+1+sizeof(NodeInfo)+i*sizeof(Index),&index,sizeof(Index));
+        }
+    }
+    memcpy((char*)page+1,&info,sizeof(NodeInfo));
+    return 0;
+}
+RC IndexManager::deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key){
+    
+}
+
+
+// POSSIBLE NODE STRUCTURE? type, header, entries and then if varchar, its stored from the end of page?
 
 
 largeInt IndexManager::getChildPage(void* page, const Attribute& attribute, const void* key) {

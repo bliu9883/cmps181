@@ -93,6 +93,8 @@ class IndexManager {
         RC insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribute, const void* key, const RID &rid, TempNode &node, largeInt rootPageNum);
         RC InsertIndex(void* page, const Attribute& attr, TempNode& nodeToInsert);
         RC InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key);
+        RC deleteIndex(void* page, const Attribute& attr, TempNode& nodetoDelete);
+        RC deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key);
         largeInt getChildPage(void* page, const Attribute& attribute, const void* key);
 
 };
