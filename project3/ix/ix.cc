@@ -694,7 +694,87 @@ RC IndexManager::deleteIndex(void* page, const Attribute& attr, TempNode& nodeto
     return 0;
 }
 RC IndexManager::deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key){
-    
+    LeafInfo info;
+    memcpy(&info,(char*)page+1,sizeof(LeafInfo));
+    largeInt numOfItem = info.numOfItem;
+
+    int slotNum = 0;
+    for(int i=0;i<info.numOfItem;i++) {
+        int comparison = 0;
+       if(attr.type == TypeInt) {
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(DataEntry)), sizeof(DataEntry));
+            largeInt _key;
+            memcpy(&_key,key,4);
+            if(_key == entry.offset) comparison = 0;
+            if(_key > entry.offset) comparison = 1;
+            if(_key < entry.offset) comparison = -1;
+        }else if(attr.type == TypeReal) {
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(DataEntry)), sizeof(DataEntry));
+            largeInt _key;
+            memcpy(&_key,key,4);
+            if(_key == entry.offset) comparison = 0;
+            if(_key > entry.offset) comparison = 1;
+            if(_key < entry.offset) comparison = -1;
+        }else if(attr.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+            largeInt varcharsize;
+            memcpy(&varcharsize,key,4);
+            char _key[varcharsize+1];
+            memcpy(&_key,(char*)key+4,varcharsize);
+            _key[varcharsize] = '\0';
+
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(NodeInfo)+(i*sizeof(DataEntry)), sizeof(DataEntry));
+            largeInt varcharsize2;
+            memcpy(&varcharsize2,(char*)page+entry.offset,4);
+            char val[varcharsize2+1];
+            memcpy(&val,(char*)page+entry.offset+4,varcharsize2);
+            val[varcharsize2]='\0';
+            comparison = strcmp(_key,val);
+        }
+        if(comparison == 0) {
+            //we've found a leaf with the same key
+            //verify that the rid is the same, if so this is the leaf to delete
+            DataEntry entryToDelete;
+            memcpy(&entryToDelete,(char*)page+1+sizeof(LeafInfo)+i*sizeof(DataEntry), sizeof(DataEntry));
+            if(rid.pageNum == entryToDelete.rid.pageNum && rid.slotNum == entryToDelete.rid.slotNum) {
+                slotNum = i;
+                break;
+            }
+  
+        }
+    }
+
+    if(slotNum == numOfItem) return -1;
+
+
+    DataEntry entry;
+    memcpy(&entry,(char*)page+1+sizeof(LeafInfo)+slotNum*sizeof(DataEntry),sizeof(DataEntry));
+
+    unsigned entryBegin = 1+sizeof(LeafInfo) + slotNum*sizeof(DataEntry);
+    unsigned entryEnd = 1+sizeof(LeafInfo)+ info.numOfItem*sizeof(DataEntry);
+
+    memmove((char*)page+entryBegin,(char*)page+entryBegin+sizeof(DataEntry), entryEnd-entryBegin-sizeof(DataEntry));
+
+    if(attr.type == TypeVarChar) {
+        largeInt len;
+        largeInt offset = entry.offset;
+        memcpy(&len,(char*)page+entry.offset,4);
+        len+=4;
+        //freespaceoffset = pagesize-emptyslotstart-1-sizeof(NodeInfo);
+        memmove((char*)page+info.emptySlotStart+len,(char*)page+info.emptySlotStart, offset-info.emptySlotStart);
+        info.emptySlotStart+=len;
+        for(int i=0;i<info.numOfItem;i++) {
+            DataEntry entry;
+            memcpy(&entry, (char*)page+1+sizeof(LeafInfo)+i*sizeof(DataEntry),sizeof(DataEntry));
+            if(entry.offset<offset) entry.offset += len;
+            memcpy((char*)page+1+sizeof(NodeInfo)+i*sizeof(DataEntry),&entry,sizeof(DataEntry));
+        }
+    }
+    memcpy((char*)page+1,&info,sizeof(LeafInfo));
+    return 0;
 }
 
 
