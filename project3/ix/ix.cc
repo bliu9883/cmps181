@@ -726,6 +726,7 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
             return 0;
         }
     }
+    return 0;
 }
 
 
