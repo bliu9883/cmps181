@@ -4,6 +4,8 @@
 #include <vector>
 #include <string>
 #include <stdlib.h>
+#include <iostream>
+using namespace std;
 
 #include "../rbf/rbfm.h"
 
@@ -96,6 +98,12 @@ class IndexManager {
         RC deleteIndex(void* page, const Attribute& attr, TempNode& nodetoDelete);
         RC deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key);
         largeInt getChildPage(void* page, const Attribute& attribute, const void* key);
+        void recursivePrint(IXFileHandle ixfileHandle, int page, const Attribute &attribute, string space) const;
+        LeafInfo getLeafHeader(const void* pageData) const;
+        void printLeaf(void* pageData, const Attribute &attribute) const;
+        DataEntry getData(const void* pageData, int dataNum);
+        int compareLeaf(const Attribute attribute, const void *key, const void* page, int slotNum) const;
+        void printInternal(IXFileHandle ixfileHandle, const void* pageData, const Attribute &attribute, string space) const;
 
 };
 
