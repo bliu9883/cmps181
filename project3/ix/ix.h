@@ -72,6 +72,13 @@ class IndexManager {
         // Delete an entry from the given index that is indicated by the given ixfileHandle.
         RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 
+        //Get the Starting Page Number
+        int getStartPageNum(IXFileHandle &ixfileHandle, int32_t rootPageNum);
+
+        int searchTree(IXFileHandle &fh, Attribute attr, void *key, int32_t currentPageNum, int32_t &finalPageNum);
+
+        // int compareLeaf(const Attribute attribute, const void *key, const void* pageData, int slotNum)const;
+
         // Initialize and IX_ScanIterator to support a range search
         RC scan(IXFileHandle &ixfileHandle,
                 const Attribute &attribute,
@@ -91,7 +98,7 @@ class IndexManager {
     private:
         static IndexManager *_index_manager;
         PagedFileManager *pfm;
-
+        void *page;
         RC insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribute, const void* key, const RID &rid, TempNode &node, largeInt rootPageNum);
         RC InsertIndex(void* page, const Attribute& attr, TempNode& nodeToInsert);
         RC InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key);
@@ -123,7 +130,19 @@ class IX_ScanIterator {
         // Terminate index scan
         RC close();
 };
+typedef struct nonLeafHeader{
+    uint16_t entriesNumber;
+    uint16_t offset;
+    uint32_t lChildPage;
+} nonLeafHeader;
 
+typedef struct leafHeader{
+    uint16_t entriesNumber;
+    uint16_t offset;
+    uint32_t previousNode;
+    uint32_t nextNode;
+
+}leafHeader;
 
 
 class IXFileHandle {

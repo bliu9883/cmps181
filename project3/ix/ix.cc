@@ -123,8 +123,106 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
     bool        	highKeyInclusive,
     IX_ScanIterator &ix_ScanIterator)
 {
-    return -1;
+        page = malloc(PAGE_SIZE);
+    if (page == NULL)
+        return -1;
+    
+    //initialize the starting slot
+    int slotNum = 0;
+
+    //Find the starting page
+    IndexManager *im = IndexManager::instance();
+    int32_t startingPage;
+    int32_t rootPageNum;
+    if(getStartPageNum(ixfileHandle, rootPageNum) != 0){
+        return -1;
+    }
+    if(im->searchTree(ixfileHandle, attribute, &lowKey, rootPageNum, startingPage)){
+        free(page);
+        return 1;
+    }
+
+    //read the page
+    if(ixfileHandle.readPage(startingPage, page)){
+        free(page);
+        return 1;
+    }
+    //find the beginning entry
+    leafHeader leafHeader;
+    unsigned offset = sizeof(char);
+    memcpy(&leafHeader, (char*)page +offset, sizeof(leafHeader));
+
+    int slotCounter = 0;
+    for(int i = 0; i<leafHeader.entriesNumber; i++, slotCounter++){
+        int temp;
+        if(lowKey == NULL){
+            temp = -1;
+        }
+        else{
+            temp = im->compareLeaf(attribute, lowKey, page, i);
+        }
+
+        if(temp < 0)
+            break;
+        if(temp == 0 && lowKeyInclusive)
+            break;
+    }
+    slotNum = slotCounter;
+    return 0;
 }
+
+int IndexManager:: getStartPageNum(IXFileHandle &ixfileHandle, int32_t rootPageNum){
+    
+    //allocate space for the meta page
+    void *metaPage = malloc(PAGE_SIZE);
+    if(metaPage == NULL)
+        return -1;
+
+    //readPage
+    if(ixfileHandle.readPage(0, metaPage)){
+        free(metaPage);
+        return -1;
+    }
+
+    uint32_t header;
+    memcpy(&header, metaPage, sizeof(leafHeader));
+    free(metaPage);
+    rootPageNum = header;
+    return 0;
+}
+
+int IndexManager:: searchTree(IXFileHandle &fh, Attribute attr, void *key, int32_t currentPageNum, int32_t &finalPageNum){
+    void *pageData = malloc(PAGE_SIZE);
+
+    //read the current page
+    if(fh.readPage(currentPageNum, pageData)){
+        free (pageData);
+        return -1;
+    }
+
+    //obtain the type of the node
+    char nodeType;
+    memcpy(&nodeType, pageData, sizeof(char));
+
+    //if the node is a leaf
+    if(nodeType == 0){
+        finalPageNum = currentPageNum;
+        free(pageData);
+        return 0;
+    }
+
+    int32_t nextNode = getChildPage(pageData, attr, key);
+    free(pageData);
+
+    return searchTree(fh, attr, key, nextNode, finalPageNum);
+
+}
+
+
+
+
+
+
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
     void* pageData = malloc(PAGE_SIZE);
