@@ -50,7 +50,9 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
         inRidSlotNumSum += rid.slotNum;
     }
 
-    cout << "after insert before scan" << endl;
+    cout << "num of pages is " << ixfileHandle.getNumberOfPages() << endl;
+
+    //cout << "after insert before scan" << endl;
     // Scan
     rc = indexManager->scan(ixfileHandle, attribute, NULL, NULL, true, true, ix_ScanIterator);
     assert(rc == success && "indexManager::scan() should not fail.");
