@@ -664,19 +664,27 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
                 cout << "write page failed" << endl;
                 return -1;
             }
-            LeafInfo temp;
-            memcpy(&temp, (char*)page+1, sizeof(LeafInfo));
-            cout << "num of items is " << temp.numOfItem << endl;
 
             //TEST
             void* temppage1 = malloc(PAGE_SIZE);
-            ixfileHandle.readPage(1,temppage1);
-            NodeInfo tempinfo;
-            memcpy(&tempinfo,(char*)temppage1+1,sizeof(NodeInfo));
-            cout << "in insert, page 1 page has " << tempinfo.numOfItem << " items" << endl;
+            ixfileHandle.readPage(2,temppage1);
+            LeafInfo tempinfo;
+            memcpy(&tempinfo,(char*)temppage1+1,sizeof(LeafInfo));
+            cout << "in insert, page 2 page has " << tempinfo.numOfItem << " items" << endl;
+            
+            for(int i=0;i<tempinfo.numOfItem;i++) {
+                DataEntry entry;
+                memcpy(&entry,(char*)temppage1+1+sizeof(LeafInfo)+i*sizeof(DataEntry), sizeof(DataEntry));
+                cout << "entry offset is " << entry.offset << " and rid is " << entry.rid.pageNum << ", " << entry.rid.slotNum << endl;
+            }
+
             free(temppage1);
 
             //
+
+            LeafInfo temp;
+            memcpy(&temp, (char*)page+1, sizeof(LeafInfo));
+            cout << "num of items is " << temp.numOfItem << endl;
 
             free(node.key);
             free(page);
@@ -890,24 +898,24 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
                 if(InsertIndex(splitrootpage,attribute,node) == -1) {
                     cout << "insert index failed in split index" << endl;
                 } 
-                  largeInt splitrootpagenum = ixfileHandle.getNumberOfPages();
+                largeInt splitrootpagenum = ixfileHandle.getNumberOfPages();
                 //change root num
-                  if(ixfileHandle.appendPage(splitrootpage)) {
+                if(ixfileHandle.appendPage(splitrootpage)) {
                     cout << "append splitrootpage failed" << endl;
                     return -1;
                 }
-                  void* metaPage = malloc(PAGE_SIZE);
-                  memcpy((char*)metaPage,&splitrootpagenum,sizeof(largeInt));
-                  if(ixfileHandle.writePage(0,metaPage)) {
+                void* metaPage = malloc(PAGE_SIZE);
+                memcpy((char*)metaPage,&splitrootpagenum,sizeof(largeInt));
+                if(ixfileHandle.writePage(0,metaPage)) {
                     cout << "write meta page failed" << endl;
                     return -1;
                 }
 
-                  free(metaPage);
-                  free(splitrootpage);
-                  free(node.key);
-                  node.key = nullptr;
-                  node.pageNum = -1;
+                free(metaPage);
+                free(splitrootpage);
+                free(node.key);
+                node.key = nullptr;
+                node.pageNum = -1;
             }
         }else{
             if(ixfileHandle.writePage(rootPageNum,page)) {
@@ -1098,7 +1106,7 @@ RC IndexManager::InsertLeaf(void* page,const Attribute& attr,const RID& rid, con
 }
 
 RC IndexManager::deleteIndex(void* page, const Attribute& attr, TempNode& nodetoDelete) {
-    cout << "inserting info index" << endl;
+    cout << "delete index" << endl;
     NodeInfo info;
     memcpy(&info,(char*)page+1,sizeof(NodeInfo));
     largeInt numOfItem = info.numOfItem;
