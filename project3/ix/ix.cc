@@ -36,7 +36,7 @@ RC IndexManager::createFile(const string &fileName)
     
     //page for root
     void* page = malloc(PAGE_SIZE);
-    memset(page, 1, PAGE_SIZE);
+    //memset(page, 1, PAGE_SIZE);
 
     uLargeInt root = 1;
     memcpy(page, &root, sizeof(uLargeInt));
@@ -65,9 +65,25 @@ RC IndexManager::createFile(const string &fileName)
     }
 
     //make a leaf page too?
+    void* leafpage = malloc(PAGE_SIZE);
+    unsigned type = 1;
+    memcpy((char*)leafpage, &type, sizeof(char));
+    LeafInfo leafinfo;
+    leafinfo.numOfItem = 0;
+    leafinfo.emptySlotStart = PAGE_SIZE;
+    leafinfo.leftSibling = 0;
+    leafinfo.rightSibling = 0;
+    memcpy((char*)leafpage+1,&leafinfo,sizeof(LeafInfo));
+    if(handle.appendPage(leafpage)) {
+        free(leafpage);
+        closeFile(handle);
+        return -1;
+    }
 
     free(page);
+    free(leafpage);
     closeFile(handle);
+    
     return 0;
 }
 
@@ -100,10 +116,11 @@ RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
     if(ixfileHandle.handle.readPage(0,metaPage)) return -1;
     uLargeInt rootPageNum;
     memcpy(&rootPageNum,metaPage,sizeof(uLargeInt));
+    cout << "root page num is " << rootPageNum << endl;
     free(metaPage);
     TempNode tempNode;
     tempNode.key = nullptr;
-    tempNode.pageNum = 0;
+    tempNode.pageNum = -1;
     cout<<"insertutil"<<endl;
     if(insertUtil(ixfileHandle,attribute,key,rid,tempNode,rootPageNum) == -1) return -1;
     return 0;
@@ -111,7 +128,46 @@ RC IndexManager::insertEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
 
 RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid)
 {
-    return -1;
+    //start from root to find the leaf node to delete from
+    largeInt rootpagenum;
+    void* rootpage = malloc(PAGE_SIZE);
+    if(ixfileHandle.readPage(0,rootpage)) {
+        free(rootpage);
+        cout << "read page fail in deleteentry" << endl;
+        return -1;
+    }
+    memcpy(&rootpagenum,rootpage,sizeof(largeInt));
+    cout << "rootpagenum has value " << rootpagenum << endl;
+    largeInt leafPageNum;
+    searchTree(ixfileHandle,attribute,key, rootpagenum, leafPageNum);
+    cout << "leaf page num is " << leafPageNum << endl;
+    void* leafpage = malloc(PAGE_SIZE);
+    if(ixfileHandle.readPage(leafPageNum,leafpage)) {
+        cout << "read leaf page failed in deleteentry" << endl;
+        return -1;
+    }
+
+    LeafInfo temp;
+    memcpy(&temp, (char*)leafpage+1,sizeof(LeafInfo));
+    cout << "temp leaf numofitem is " << temp.numOfItem << endl;
+
+    int result = deleteLeaf(leafpage,attribute,rid,key);
+    if(result == -1) {
+        cout << "deleteleaf failed" << endl;
+        free(leafpage);
+        return -1;
+    }else{
+        //write to page
+        if(ixfileHandle.writePage(leafPageNum,leafpage)) {
+            free(leafpage);
+            cout << "write deleted leaf page failed" << endl;
+            return -1;
+        }else{
+            free(leafpage);
+        }
+    }
+
+    return 0;
 }
 
 
@@ -134,9 +190,11 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
     IndexManager *im = IndexManager::instance();
     int32_t startingPage;
     int32_t rootPageNum;
-    if(getStartPageNum(ixfileHandle, rootPageNum) != 0){
-        return -1;
-    }
+    void* rootpage = malloc(PAGE_SIZE);
+    if(ixfileHandle.readPage(0,rootpage) != 0) return -1;
+    memcpy(&rootPageNum,(char*)rootpage, sizeof(largeInt));
+    if(rootPageNum != 0) return -1;
+
     if(im->searchTree(ixfileHandle, attribute, &lowKey, rootPageNum, startingPage)){
         free(page);
         return 1;
@@ -191,7 +249,8 @@ int IndexManager:: getStartPageNum(IXFileHandle &ixfileHandle, int32_t rootPageN
     return 0;
 }
 
-int IndexManager:: searchTree(IXFileHandle &fh, Attribute attr, void *key, int32_t currentPageNum, int32_t &finalPageNum){
+int IndexManager:: searchTree(IXFileHandle &fh, Attribute attr, const void *key, largeInt currentPageNum, largeInt &finalPageNum){
+    //return 2;
     void *pageData = malloc(PAGE_SIZE);
 
     //read the current page
@@ -205,7 +264,8 @@ int IndexManager:: searchTree(IXFileHandle &fh, Attribute attr, void *key, int32
     memcpy(&nodeType, pageData, sizeof(char));
 
     //if the node is a leaf
-    if(nodeType == 0){
+    if(nodeType == 1){
+        cout << "we are at the leaf page and leaf page num is " << currentPageNum << endl;
         finalPageNum = currentPageNum;
         free(pageData);
         return 0;
@@ -217,11 +277,6 @@ int IndexManager:: searchTree(IXFileHandle &fh, Attribute attr, void *key, int32
     return searchTree(fh, attr, key, nextNode, finalPageNum);
 
 }
-
-
-
-
-
 
 
 void IndexManager::printBtree(IXFileHandle &ixfileHandle, const Attribute &attribute) const {
@@ -398,15 +453,20 @@ int IndexManager::compareLeaf(const Attribute attribute, const void *key, const 
 RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribute, const void* key, const RID &rid, TempNode &node, largeInt rootPageNum) {
     //read in root page 
     void* page = malloc(PAGE_SIZE);
-    if(ixfileHandle.readPage(rootPageNum,page)) return -1;
-
+    if(ixfileHandle.readPage(rootPageNum,page)) {
+        cout << "read page failed" << endl;
+        return -1;
+    }
     //find out child page(to descend to leaves)
     char nodeType;
     memcpy(&nodeType,page,sizeof(char));
 
+    cout << "insert util root page num is " << rootPageNum << endl;
+
     //if leaf node, then find a place to insert.
 
     if(nodeType == 1) {
+        cout << "inside leaf segment" << endl;
         //INSERT INTO LEAF
         int result = InsertLeaf(page,attribute,rid,key);
         if(result != 0) {
@@ -568,14 +628,16 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
 
             if(comparison <= 0) {
                 cout<<"1"<<endl;
-                if(InsertLeaf(page,attribute,rid,key)) {
+                if(InsertLeaf(page,attribute,rid,key) == -1) {
                     free(splitleaf);
+                    cout << "insert leaf failed" << endl;
                     return -1;
                 }
             }else{
-                cout<<"2"<<endl;
-                if(InsertLeaf(splitleaf,attribute,rid,key)) {
+                //cout<<"2"<<endl;
+                if(InsertLeaf(splitleaf,attribute,rid,key) == -1) {
                     free(splitleaf);
+                    cout << "insert leaf split failed" << endl;
                     return -1;
                 }
             }
@@ -584,11 +646,13 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
             cout<<"3"<<endl;
             if(ixfileHandle.writePage(rootPageNum,page)) {
                 free(splitleaf); 
+                cout << "write page failed" << endl;
                 return -1;
             }
             cout<<"4"<<endl;
             if(ixfileHandle.appendPage(splitleaf)) {
                 free(splitleaf);
+                cout << "append splitleaf failed" << endl;
                 return -1;
             }
             free(splitleaf);
@@ -596,7 +660,25 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
             return 0;
         }else{
             cout<<"5"<<endl;
-            if(ixfileHandle.writePage(rootPageNum,page)) return -1;
+            cout << "page num to write to is " << rootPageNum << endl;
+            if(ixfileHandle.writePage(rootPageNum,page)) {
+                cout << "write page failed" << endl;
+                return -1;
+            }
+            LeafInfo temp;
+            memcpy(&temp, (char*)page+1, sizeof(LeafInfo));
+            cout << "num of items is " << temp.numOfItem << endl;
+
+            //TEST
+            void* temppage1 = malloc(PAGE_SIZE);
+            ixfileHandle.readPage(1,temppage1);
+            NodeInfo tempinfo;
+            memcpy(&tempinfo,(char*)temppage1+1,sizeof(NodeInfo));
+            cout << "in insert, page 1 page has " << tempinfo.numOfItem << " items" << endl;
+            free(temppage1);
+
+            //
+
             free(node.key);
             free(page);
             node.key = nullptr;
@@ -604,10 +686,14 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
             return 0;  
         }
     }else{
+        cout << "inside index segment" << endl;
+
         //if not leaf, get child node and recursively insert
         largeInt childPageNum = getChildPage(page,attribute,key);
+        cout << "childpagenum in index is " << childPageNum << endl;
 
         if(insertUtil(ixfileHandle,attribute,key,rid,node,childPageNum) == -1) {
+            cout << "recursive insertutil failed" << endl;
             return -1;
         }
         //inserted entry into correct leaf node
@@ -616,9 +702,13 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
         }
     //if temp not reset, then it means leaf split, and need to copy up the first index of the second node from split
         page = malloc(PAGE_SIZE);
-        if(ixfileHandle.readPage(rootPageNum,page)) return -1;
+        if(ixfileHandle.readPage(rootPageNum,page)) {
+            cout << "readpage failed" << endl;
+            return -1;
+        }
         int result = InsertIndex(page,attribute,node);
         if(result == -1) {
+            cout << "insertindex failed, in split" << endl;
             //split internal
             //split internal uses ixfilehandle, attribute, rootpagenum,page,node
             NodeInfo info;
@@ -696,27 +786,137 @@ RC IndexManager::insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribut
                     memcpy(keytomove,&(index.offset),4);
                 }
 
-                TempNode nodeToInsert;
-                nodeToInsert.key = keytomove;
-                nodeToInsert.pageNum = pagetomove;
-                InsertIndex(splitindexpage,attribute,nodeToInsert);
+                TempNode nodeToModify;
+                nodeToModify.key = keytomove;
+                nodeToModify.pageNum = pagetomove;
+                InsertIndex(splitindexpage,attribute,nodeToModify);
                 //delete internal uses attribute, keytomove,page
-
-
-
+                deleteIndex(page,attribute,nodeToModify);
             }
             free(keytomove);
+            TempNode keytempnode;
+            keytempnode.key = middlekey;
             //delete internal with attribute,middlekey,page
-
+            deleteIndex(page,attribute,keytempnode);
             //compareslot
 
+            int comparison = 0;
+            if(attribute.type == TypeInt) {
+                Index index;
+                memcpy(&index, (char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index), sizeof(Index));
+                largeInt _key;
+                memcpy(&_key,node.key,4);
+                if(_key == index.offset) comparison = 0;
+                if(_key > index.offset) comparison = 1;
+                if(_key < index.offset) comparison = -1;
+            }else if(attribute.type == TypeReal) {
+                Index index;
+                memcpy(&index, (char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index), sizeof(Index));
+                largeInt _key;
+                memcpy(&_key,node.key,4);
+                if(_key == index.offset) comparison = 0;
+                if(_key > index.offset) comparison = 1;
+                if(_key < index.offset) comparison = -1;
+            }else if(attribute.type == TypeVarChar) {
+                        //use varchar offset to get the value and use that for comparison
+                largeInt varcharsize;
+                memcpy(&varcharsize,node.key,4);
+                char _key[varcharsize+1];
+                memcpy(&_key,(char*)node.key+4,varcharsize);
+                _key[varcharsize] = '\0';
 
+                Index index;
+                memcpy(&index, (char*)page+1+sizeof(NodeInfo)+slotNum*sizeof(Index), sizeof(Index));
+                largeInt varcharsize2;
+                memcpy(&varcharsize2,(char*)page+index.offset,4);
+                char val[varcharsize2+1];
+                memcpy(&val,(char*)page+index.offset+4,varcharsize2);
+                val[varcharsize2]='\0';
+                comparison = strcmp(_key,val);
+            }
+            if(comparison < 0) {
+                int result = InsertIndex(page,attribute,node);
+                if(result != 0) {
+                    cout << "insert index failed" << endl;
+                    free(splitindexpage);
+                    return -1;
+                }
+            }else{
+                int result = InsertIndex(splitindexpage,attribute,node);
+                if(result != 0) {
+                    cout << "insert index failed" << endl;
+                    free(splitindexpage);
+                    return -1;
+                }
+            }
+
+            //write changes to disk
+            if(ixfileHandle.appendPage(splitindexpage)) {
+                free(splitindexpage);
+                cout << "append page failed" << endl;
+                return -1;
+            }
+
+            if(ixfileHandle.writePage(rootPageNum,page)) {
+                free(splitindexpage);
+                cout << "write page failed" << endl;
+                return -1;
+            }
+
+            free(splitindexpage);
+            free(node.key);
+            node.key = middlekey;
+            node.pageNum = splitpagenum;
+
+            largeInt tempPageRootNum;
+            void* temprootpage = malloc(PAGE_SIZE);
+            if(ixfileHandle.readPage(0,temprootpage)) {
+                cout << "read page failed" << endl;
+                return -1;
+            }
+            memcpy(&tempPageRootNum,(char*)temprootpage,sizeof(largeInt));
+            free(temprootpage);
+
+            if(tempPageRootNum == rootPageNum) {
+                //we just split the root so update rootpage 
+
+                void* splitrootpage = malloc(PAGE_SIZE);
+                unsigned type = 0;
+                memcpy((char*)splitrootpage,&type,sizeof(char));
+                NodeInfo splitrootinfo;
+                splitrootinfo.numOfItem = 0;
+                splitrootinfo.emptySlotStart = PAGE_SIZE;
+                splitrootinfo.childPageNum = rootPageNum;
+                memcpy((char*)splitrootpage+1,&splitrootinfo,sizeof(NodeInfo));
+                if(InsertIndex(splitrootpage,attribute,node) == -1) {
+                    cout << "insert index failed in split index" << endl;
+                } 
+                  largeInt splitrootpagenum = ixfileHandle.getNumberOfPages();
+                //change root num
+                  if(ixfileHandle.appendPage(splitrootpage)) {
+                    cout << "append splitrootpage failed" << endl;
+                    return -1;
+                }
+                  void* metaPage = malloc(PAGE_SIZE);
+                  memcpy((char*)metaPage,&splitrootpagenum,sizeof(largeInt));
+                  if(ixfileHandle.writePage(0,metaPage)) {
+                    cout << "write meta page failed" << endl;
+                    return -1;
+                }
+
+                  free(metaPage);
+                  free(splitrootpage);
+                  free(node.key);
+                  node.key = nullptr;
+                  node.pageNum = -1;
+            }
         }else{
             if(ixfileHandle.writePage(rootPageNum,page)) {
                 free(node.key);
                 node.key = nullptr;
                 node.pageNum = -1;
                 free(page);
+                cout << "write page failed" << endl;
                 return -1;
             }
             free(node.key);
@@ -812,8 +1012,9 @@ RC IndexManager::InsertIndex(void* page, const Attribute& attr, TempNode& nodeTo
 
 RC IndexManager::InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key) {
      //INSERT INTO LEAF
+    cout << "inserting into leaf" << endl;
     LeafInfo info;
-    memcpy(&info, page,sizeof(LeafInfo));
+    memcpy(&info, (char*)page+1,sizeof(LeafInfo));
     largeInt sizeofkey;
     if(attr.type == TypeVarChar) {
         largeInt varlen;
@@ -826,7 +1027,10 @@ RC IndexManager::InsertLeaf(void* page,const Attribute& attr,const RID& rid, con
         //get free space for leaf to see if will fit
     largeInt currBytes = 1+sizeof(LeafInfo)+info.numOfItem*sizeof(DataEntry);
     largeInt freeSpace = info.emptySlotStart - currBytes;
-    if(freeSpace < sizeofkey) return -1;
+    if(freeSpace < sizeofkey) {
+        cout << "not enough space" << endl;
+        return -1;
+    }
     int slotNum=0;
     for(int i=0;i<info.numOfItem;i++) {
         int comparison = 0;
@@ -890,10 +1094,12 @@ RC IndexManager::InsertLeaf(void* page,const Attribute& attr,const RID& rid, con
     memcpy((char*)page+1,&info,sizeof(LeafInfo));
     unsigned setentryoffset = 1+sizeof(LeafInfo)+slotNum*sizeof(DataEntry);
     memcpy((char*)page+setentryoffset,&entry,sizeof(DataEntry));
+    cout << "insertleaf return success" << endl;
     return 0;
 }
 
 RC IndexManager::deleteIndex(void* page, const Attribute& attr, TempNode& nodetoDelete) {
+    cout << "inserting info index" << endl;
     NodeInfo info;
     memcpy(&info,(char*)page+1,sizeof(NodeInfo));
     largeInt numOfItem = info.numOfItem;
@@ -969,9 +1175,11 @@ RC IndexManager::deleteIndex(void* page, const Attribute& attr, TempNode& nodeto
     return 0;
 }
 RC IndexManager::deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key){
+    cout << "deleting leaf" << endl;
     LeafInfo info;
     memcpy(&info,(char*)page+1,sizeof(LeafInfo));
     largeInt numOfItem = info.numOfItem;
+    cout << "num of item beginning is " << numOfItem << endl;
 
     int slotNum = 0;
     for(int i=0;i<info.numOfItem;i++) {
@@ -1022,6 +1230,7 @@ RC IndexManager::deleteLeaf(void* page, const Attribute& attr, const RID& rid, c
         }
     }
 
+    cout << "deleteleaf slotnum and numofitem is " << slotNum << " " << numOfItem << endl;
     if(slotNum == numOfItem) return -1;
 
 

@@ -75,7 +75,7 @@ class IndexManager {
         //Get the Starting Page Number
         int getStartPageNum(IXFileHandle &ixfileHandle, int32_t rootPageNum);
 
-        int searchTree(IXFileHandle &fh, Attribute attr, void *key, int32_t currentPageNum, int32_t &finalPageNum);
+        largeInt searchTree(IXFileHandle &fh, Attribute attr, const void *key, largeInt currentPageNum, largeInt &finalPageNum);
 
         // int compareLeaf(const Attribute attribute, const void *key, const void* pageData, int slotNum)const;
 
