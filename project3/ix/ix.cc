@@ -171,6 +171,7 @@ RC IndexManager::deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attrib
 }
 
 
+
 RC IndexManager::scan(IXFileHandle &ixfileHandle,
     const Attribute &attribute,
     const void      *lowKey,
@@ -179,36 +180,71 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
     bool        	highKeyInclusive,
     IX_ScanIterator &ix_ScanIterator)
 {
-    page = malloc(PAGE_SIZE);
-    if (page == NULL)
+    cout << "inside scan" << endl;
+    ix_ScanIterator.fileHandle = &ixfileHandle;
+    ix_ScanIterator.attr = attribute;
+    ix_ScanIterator.lowKey = lowKey;
+    ix_ScanIterator.highKey = highKey;
+    ix_ScanIterator.lowKeyInclusive = lowKeyInclusive;
+    ix_ScanIterator.highKeyInclusive = highKeyInclusive;
+
+
+    ix_ScanIterator.page = malloc(PAGE_SIZE);
+    if (ix_ScanIterator.page == NULL)
         return -1;
-    
+    // if(ixfileHandle.readPage(2, ix_ScanIterator.page)) {
+    //     free(ix_ScanIterator.page);
+    //     return -1;
+    // }
+    //cout << "past first read" << endl;
     //initialize the starting slot
-    int slotNum = 0;
+    ix_ScanIterator.slotNum = 0;
 
     //Find the starting page
     IndexManager *im = IndexManager::instance();
     int32_t startingPage;
     int32_t rootPageNum;
-    void* rootpage = malloc(PAGE_SIZE);
-    if(ixfileHandle.readPage(0,rootpage) != 0) return -1;
-    memcpy(&rootPageNum,(char*)rootpage, sizeof(largeInt));
-    if(rootPageNum != 0) return -1;
 
-    if(im->searchTree(ixfileHandle, attribute, &lowKey, rootPageNum, startingPage)){
-        free(page);
-        return 1;
+    void* metaPage = malloc(PAGE_SIZE);
+    if (metaPage == NULL) return -1;
+
+
+    cout << "before readpage 1" << endl;
+    if(ixfileHandle.readPage(0,metaPage)){
+        cout << "inside if statement" << endl;
+        free(metaPage);
+        return -1;
     }
 
+    cout << "past second read" << endl;
+
+    memcpy(&rootPageNum,(char*)metaPage,sizeof(largeInt));
+
+
+
+
+    cout << "before rootPageNum assert" << endl;
+    cout << "rootpageNum: " <<rootPageNum <<endl;
+
+
+    cout << "before searchTree" << endl;
+    if(im->searchTree(ixfileHandle, attribute, lowKey, rootPageNum, startingPage)){
+        free(ix_ScanIterator.page);
+        return -1;
+    }
+    cout << "starting page is " << startingPage << endl;
+    cout << "after searchTree" << endl;
     //read the page
-    if(ixfileHandle.readPage(startingPage, page)){
-        free(page);
-        return 1;
+    if(ixfileHandle.readPage(startingPage, ix_ScanIterator.page)){
+        free(ix_ScanIterator.page);
+        return -1;
     }
+
+    cout << "after readPage" << endl;
     //find the beginning entry
     leafHeader leafHeader;
     unsigned offset = sizeof(char);
-    memcpy(&leafHeader, (char*)page +offset, sizeof(leafHeader));
+    memcpy(&leafHeader, (char*)ix_ScanIterator.page +offset, sizeof(leafHeader));
 
     int slotCounter = 0;
     for(int i = 0; i<leafHeader.entriesNumber; i++, slotCounter++){
@@ -217,7 +253,8 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
             temp = -1;
         }
         else{
-            temp = im->compareLeaf(attribute, lowKey, page, i);
+            temp = im->compareLeaf(attribute, lowKey, ix_ScanIterator.page, i);
+            cout << "after aftercompareLeaf" << endl;
         }
 
         if(temp < 0)
@@ -225,7 +262,8 @@ RC IndexManager::scan(IXFileHandle &ixfileHandle,
         if(temp == 0 && lowKeyInclusive)
             break;
     }
-    slotNum = slotCounter;
+    cout << "after for loop" << endl;
+    ix_ScanIterator.slotNum = slotCounter;
     return 0;
 }
 
@@ -406,6 +444,7 @@ free(key);
 
 
 LeafInfo IndexManager::getLeafHeader(const void* pageData) const{
+
     LeafInfo header;
     int offset = sizeof(char);
     memcpy(&header, (char*)pageData+offset, sizeof(LeafInfo));
@@ -1334,14 +1373,85 @@ IX_ScanIterator::~IX_ScanIterator()
 {
 }
 
+
+
 RC IX_ScanIterator::getNextEntry(RID &rid, void *key)
 {
-    return -1;
+    cout << "inside get next entry" << endl;
+    IndexManager *im = IndexManager::instance();
+    cout << "past getting im instance" << endl;
+
+    void* newPage = malloc(PAGE_SIZE);
+    fileHandle->readPage(2,newPage);
+    NodeInfo header1;
+    memcpy(&header1, (char*)newPage+1, sizeof(NodeInfo));
+    cout << "header1 numofitem is " << header1.numOfItem << endl;
+
+    cout << "past test" << endl;
+
+    LeafInfo header;
+    memcpy(&header, (char*)page+1, sizeof(LeafInfo));
+    cout << "header numofitem is " << header.numOfItem << endl;
+
+    //LeafInfo header = im->getLeafHeader(page);
+
+
+    cout << "before if statement1" << endl;
+    // If we have run off the end of the page, jump to the next one
+    if (slotNum >= header.numOfItem)
+    {
+        // If there is no next page, return EOF
+        if (header.rightSibling == 0)
+            return -1;
+        slotNum = 0;
+        fileHandle->readPage(header.leftSibling, page);
+
+        return getNextEntry(rid, key);
+    }
+
+
+
+    cout << "before comapre statement" << endl;
+    // If highkey is null, always carry on
+    // Otherwise, carry on only if highkey is greater than the current key
+    int cmp = highKey == NULL ? 1 : im->compareLeaf(attr, highKey, page, slotNum);
+    if (cmp == 0 && !highKeyInclusive)
+        return -1;
+    if (cmp < 0)
+        return -1;
+
+    cout << "before memcpy statement" << endl;
+    // Grab the data entry, grab its rid
+    DataEntry entry;
+    memcpy(&entry, (char*)page + 1 +sizeof(LeafInfo) + slotNum *sizeof(DataEntry), sizeof(DataEntry));
+
+    rid.pageNum = entry.rid.pageNum;
+    rid.slotNum = entry.rid.slotNum;
+    // grab its key
+    cout << "before if statement" << endl;
+
+    if (attr.type == TypeInt)
+        memcpy(key, &(entry.offset), INT_SIZE);
+    else if (attr.type == TypeReal)
+        memcpy(key, &(entry.offset), REAL_SIZE);
+    else
+    {
+        int len;
+        memcpy(&len, (char*)page + entry.offset, VARCHAR_LENGTH_SIZE);
+        memcpy(key, &len, VARCHAR_LENGTH_SIZE);
+        memcpy((char*)key + VARCHAR_LENGTH_SIZE, (char*)page + entry.offset + VARCHAR_LENGTH_SIZE, len);
+    }
+    cout << "after else statement" << endl;
+    // increment slotNum for the next call to getNextEntry
+    slotNum++;
+    return SUCCESS;
 }
+
 
 RC IX_ScanIterator::close()
 {
-    return -1;
+    free(page);
+    return SUCCESS;
 }
 
 
