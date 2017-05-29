@@ -70,8 +70,8 @@ int testCase_2(const string &indexFileName, const Attribute &attribute)
     } 
 
     // print BTree, by this time the BTree should have only one node
-    //cerr << endl;
-    //indexManager->printBtree(ixfileHandle, attribute);
+    cerr << endl;
+    indexManager->printBtree(ixfileHandle, attribute);
 
     // close index file
     rc = indexManager->closeFile(ixfileHandle);

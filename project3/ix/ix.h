@@ -30,6 +30,11 @@ typedef struct {
     uLargeInt rightSibling;
 }LeafInfo;
 
+typedef struct MetaHeader
+{
+    uint32_t rootPage;
+} MetaHeader;
+
 typedef struct {
     largeInt offset;
     uLargeInt childPageNum;
@@ -129,6 +134,19 @@ class IX_ScanIterator {
 
         // Terminate index scan
         RC close();
+
+
+        IXFileHandle *fileHandle;
+        Attribute attr;
+        const void *lowKey;
+        const void *highKey;
+        bool lowKeyInclusive;
+        bool highKeyInclusive;
+
+        void * page;
+        int slotNum;
+
+    private:
 };
 typedef struct nonLeafHeader{
     uint16_t entriesNumber;

@@ -53,6 +53,7 @@ int testCase_3(const string &indexFileName, const Attribute &attribute)
 
     // There should be one record
     int count = 0;
+    cout << "before get next entry" << endl;
     while(ix_ScanIterator.getNextEntry(rid, &key) == success)
     {
         cerr << "Returned rid from a scan: " << rid.pageNum << " " << rid.slotNum << endl;
