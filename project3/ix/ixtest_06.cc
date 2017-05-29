@@ -66,9 +66,10 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
         if (rid.pageNum % 200 == 0) {
             cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
         }
+
         outRidSlotNumSum += rid.slotNum;
     }
-
+    cout << "out rid sum and inrid sum is " << outRidSlotNumSum << ", " << inRidSlotNumSum << endl;
     // Inconsistency between insert and scan?
     if (inRidSlotNumSum != outRidSlotNumSum)
     {

@@ -30,11 +30,6 @@ typedef struct {
     uLargeInt rightSibling;
 }LeafInfo;
 
-typedef struct MetaHeader
-{
-    uint32_t rootPage;
-} MetaHeader;
-
 typedef struct {
     largeInt offset;
     uLargeInt childPageNum;
@@ -103,7 +98,7 @@ class IndexManager {
     private:
         static IndexManager *_index_manager;
         PagedFileManager *pfm;
-        void *page;
+        //void *page;
         RC insertUtil(IXFileHandle &ixfileHandle,const Attribute &attribute, const void* key, const RID &rid, TempNode &node, largeInt rootPageNum);
         RC InsertIndex(void* page, const Attribute& attr, TempNode& nodeToInsert);
         RC InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key);
@@ -113,8 +108,6 @@ class IndexManager {
         void recursivePrint(IXFileHandle ixfileHandle, int page, const Attribute &attribute, string space) const;
         LeafInfo getLeafHeader(const void* pageData) const;
         void printLeaf(void* pageData, const Attribute &attribute) const;
-        DataEntry getData(const void* pageData, int dataNum);
-        int compareLeaf(const Attribute attribute, const void *key, const void* page, int slotNum) const;
         void printInternal(IXFileHandle ixfileHandle, const void* pageData, const Attribute &attribute, string space) const;
 
 };
