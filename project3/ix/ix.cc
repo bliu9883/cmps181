@@ -23,7 +23,6 @@ IndexManager::~IndexManager()
     1) create the file
     2) open it, and write in node type
     3) set up the root node, first page
-
 */
 RC IndexManager::createFile(const string &fileName)
 {
@@ -942,7 +941,7 @@ RC IndexManager::InsertIndex(void* page, const Attribute& attr, TempNode& nodeTo
         keysize += (temp_len+4);
     }
     largeInt currBytes = 1+sizeof(NodeInfo)+info.numOfItem*sizeof(Index);
-    largeInt freeSpace =  - info.emptySlotStart  - currBytes;
+    largeInt freeSpace = info.emptySlotStart  - currBytes;
 
     if(freeSpace < keysize) return -1;
     int slotNum = 0;
