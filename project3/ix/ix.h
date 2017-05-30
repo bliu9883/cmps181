@@ -72,9 +72,6 @@ class IndexManager {
         // Delete an entry from the given index that is indicated by the given ixfileHandle.
         RC deleteEntry(IXFileHandle &ixfileHandle, const Attribute &attribute, const void *key, const RID &rid);
 
-        //Get the Starting Page Number
-        int getStartPageNum(IXFileHandle &ixfileHandle, int32_t rootPageNum);
-
         largeInt searchTree(IXFileHandle &fh, Attribute attr, const void *key, largeInt currentPageNum, largeInt &finalPageNum);
 
         // int compareLeaf(const Attribute attribute, const void *key, const void* pageData, int slotNum)const;
@@ -106,7 +103,6 @@ class IndexManager {
         RC deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key);
         largeInt getChildPage(void* page, const Attribute attribute, const void* key);
         void recursivePrint(IXFileHandle ixfileHandle, int page, const Attribute &attribute, string space) const;
-        LeafInfo getLeafHeader(const void* pageData) const;
         void printLeaf(void* pageData, const Attribute &attribute) const;
         void printInternal(IXFileHandle ixfileHandle, const void* pageData, const Attribute &attribute, string space) const;
 
@@ -145,19 +141,6 @@ class IX_ScanIterator {
        private:
  
 };
-typedef struct nonLeafHeader{
-    uint16_t entriesNumber;
-    uint16_t offset;
-    uint32_t lChildPage;
-} nonLeafHeader;
-
-typedef struct leafHeader{
-    uint16_t entriesNumber;
-    uint16_t offset;
-    uint32_t previousNode;
-    uint32_t nextNode;
-
-}leafHeader;
 
 
 class IXFileHandle {
