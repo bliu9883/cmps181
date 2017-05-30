@@ -71,7 +71,6 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
 
         outRidSlotNumSum += rid.slotNum;
     }
-    cout << "out rid sum and inrid sum is " << outRidSlotNumSum << ", " << inRidSlotNumSum << endl;
     // Inconsistency between insert and scan?
     if (inRidSlotNumSum != outRidSlotNumSum)
     {
