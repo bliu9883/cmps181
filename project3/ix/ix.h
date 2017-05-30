@@ -128,8 +128,7 @@ class IX_ScanIterator {
         // Terminate index scan
         RC close();
 
-
-        IXFileHandle *fileHandle;
+  IXFileHandle *fileHandle;
         Attribute attr;
         const void *lowKey;
         const void *highKey;
@@ -139,7 +138,12 @@ class IX_ScanIterator {
         void * page;
         int slotNum;
 
-    private:
+        RC setup(IXFileHandle& _fileHandle, Attribute _attr, const void* _lowKey, const void* _highKey, bool _lowKeyInclusive, bool _highKeyInclusive);
+
+
+
+       private:
+ 
 };
 typedef struct nonLeafHeader{
     uint16_t entriesNumber;
