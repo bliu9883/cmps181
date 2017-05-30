@@ -104,7 +104,7 @@ class IndexManager {
         RC InsertLeaf(void* page,const Attribute& attr,const RID& rid, const void* key);
         RC deleteIndex(void* page, const Attribute& attr, TempNode& nodetoDelete);
         RC deleteLeaf(void* page, const Attribute& attr, const RID& rid, const void* key);
-        largeInt getChildPage(void* page, const Attribute& attribute, const void* key);
+        largeInt getChildPage(void* page, const Attribute attribute, const void* key);
         void recursivePrint(IXFileHandle ixfileHandle, int page, const Attribute &attribute, string space) const;
         LeafInfo getLeafHeader(const void* pageData) const;
         void printLeaf(void* pageData, const Attribute &attribute) const;

@@ -44,13 +44,15 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
         rid.pageNum = key;
         rid.slotNum = key * 3;
 
+      //  cout << "insert rid page and slot num " << rid.pageNum << ", " << rid.slotNum << endl;
+
         rc = indexManager->insertEntry(ixfileHandle, attribute, &key, rid);
         assert(rc == success && "indexManager::insertEntry() should not fail.");
 
         inRidSlotNumSum += rid.slotNum;
     }
 
-    cout << "num of pages is " << ixfileHandle.getNumberOfPages() << endl;
+    //cout << "num of pages is " << ixfileHandle.getNumberOfPages() << endl;
 
     //cout << "after insert before scan" << endl;
     // Scan
@@ -62,7 +64,7 @@ int testCase_6(const string &indexFileName, const Attribute &attribute)
     while(ix_ScanIterator.getNextEntry(rid, &key) == success)
     {
         count++;
-        cout << "rid page and slot : " << rid.pageNum << ", " << rid.slotNum << endl;
+        //cout << "rid page and slot : " << rid.pageNum << ", " << rid.slotNum << endl;
         if (rid.pageNum % 200 == 0) {
             cerr << count << " - Returned rid: " << rid.pageNum << " " << rid.slotNum << endl;
         }
